@@ -1,50 +1,40 @@
 package com.example.demo.controller;
 
-import com.example.demo.model.User;
-import com.example.demo.repository.UserRepository;
-import com.example.demo.service.JwtUtil;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import com.example.demo.dto.AuthRequestDTO;
+import com.example.demo.dto.AuthResponseDTO;
+import com.example.demo.service.AuthService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
+    private final AuthService authService;
 
-    public AuthController(UserRepository userRepo,
-                          PasswordEncoder passwordEncoder,
-                          JwtUtil jwtUtil,
-                          AuthenticationManager authenticationManager) {
-        this.userRepository = userRepo;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtUtil = jwtUtil;
-        this.authenticationManager = authenticationManager;
+    public AuthController(AuthService authService) {
+        this.authService = authService;
     }
 
-    record AuthRequest(String username, String password) {}
+
+
+
+
+
 
     @PostMapping("/register")
-    public String register(@RequestBody AuthRequest req) {
-        User u = new User();
-        u.setUsername(req.username());
-        u.setPassword(passwordEncoder.encode(req.password()));
-        userRepository.save(u);
-        return "User registered";
+    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody AuthRequestDTO req) {
+        AuthResponseDTO response = authService.register(req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody AuthRequest req) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.username(), req.password())
-        );
-        return jwtUtil.generateToken(req.username());
+    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO req) {
+        AuthResponseDTO response = authService.login(req);
+        return ResponseEntity.ok(response);
     }
 }

@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -10,8 +11,8 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    // Videti sta tacno ovo treba da bude i gde da se cuva ima li neki env fajl ili tako nesto
-    private final String SECRET="tajna";
+    @Value("${jwt.secret}")
+    private String SECRET;
 
     public String generateToken(String username) {
         return Jwts.builder()
