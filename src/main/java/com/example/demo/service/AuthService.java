@@ -38,7 +38,9 @@ public class AuthService {
         u.setUsername(req.getUsername());
         u.setPassword(passwordEncoder.encode(req.getPassword()));
         userRepository.save(u);
-        return new AuthResponseDTO(null, "User registered");
+        String token = jwtUtil.generateToken(u.getUsername());
+        String refreshToken = jwtUtil.generateRefreshToken(u.getUsername());
+        return new AuthResponseDTO(token, refreshToken, "User registered");
     }
 
     public AuthResponseDTO login(AuthRequestDTO req) {
@@ -46,7 +48,8 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
         );
         String token = jwtUtil.generateToken(req.getUsername());
-        return new AuthResponseDTO(token, "Login successful");
+        String refreshToken = jwtUtil.generateRefreshToken(req.getUsername());
+        return new AuthResponseDTO(token, refreshToken, "Login successful");
     }
 
     public RefreshTokenResponseDTO refreshToken(RefreshTokenRequestDTO req) {

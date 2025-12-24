@@ -15,19 +15,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<AuthResponseDTO> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(new AuthResponseDTO(null, "Invalid username or password"));
+            .body(new AuthResponseDTO(null, null, "Invalid username or password"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<AuthResponseDTO> handleValidationException(MethodArgumentNotValidException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new AuthResponseDTO(null, "Validation failed: " + ex.getMessage()));
+            .body(new AuthResponseDTO(null, null, "Validation failed: " + ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<AuthResponseDTO> handleOtherExceptions(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new AuthResponseDTO(null, "An error occurred: " + ex.getMessage()));
+            .body(new AuthResponseDTO(null, null, "An error occurred: " + ex.getMessage()));
     }
 }

@@ -2,11 +2,13 @@ package com.example.demo.dto;
 
 public class AuthResponseDTO {
     private String token;
+    private String refreshToken;
     private String message;
 
     public AuthResponseDTO() {}
-    public AuthResponseDTO(String token, String message) {
+    public AuthResponseDTO(String token, String refreshToken, String message) {
         this.token = token;
+        this.refreshToken = refreshToken;
         this.message = message;
     }
 
@@ -16,6 +18,14 @@ public class AuthResponseDTO {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public void setRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 
     public String getMessage() {
