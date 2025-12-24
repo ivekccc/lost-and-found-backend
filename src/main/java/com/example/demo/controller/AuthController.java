@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.AuthRequestDTO;
 import com.example.demo.dto.AuthResponseDTO;
+import com.example.demo.dto.RefreshTokenRequestDTO;
+import com.example.demo.dto.RefreshTokenResponseDTO;
 import com.example.demo.service.AuthService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,10 +28,20 @@ public class AuthController {
 
 
 
+
     @PostMapping("/register")
     public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody AuthRequestDTO req) {
         AuthResponseDTO response = authService.register(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshTokenResponseDTO> refresh(@RequestBody RefreshTokenRequestDTO req) {
+        RefreshTokenResponseDTO response = authService.refreshToken(req);
+        if (response.getAccessToken() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")

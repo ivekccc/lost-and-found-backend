@@ -21,11 +21,9 @@ import org.springframework.security.config.annotation.authentication.configurati
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-    private final MyUserDetailsService userDetailsService;
     private final JwtAuthFilter jwtFilter;
 
     public SecurityConfig(MyUserDetailsService userDetailsService, JwtAuthFilter jwtFilter) {
-        this.userDetailsService = userDetailsService;
         this.jwtFilter = jwtFilter;
     }
 
