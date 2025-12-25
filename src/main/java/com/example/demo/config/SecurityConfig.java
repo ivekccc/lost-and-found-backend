@@ -2,7 +2,6 @@ package com.example.demo.config;
 
 
 import com.example.demo.service.CustomOAuth2UserService;
-import com.example.demo.service.MyUserDetailsService;
 import com.example.demo.service.JwtAuthFilter;
 import com.example.demo.service.OAuth2LoginSuccessHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +30,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 public class SecurityConfig {
     private final JwtAuthFilter jwtFilter;
 
-    public SecurityConfig(MyUserDetailsService userDetailsService, JwtAuthFilter jwtFilter) {
+    public SecurityConfig( JwtAuthFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
     @Autowired
@@ -46,7 +45,6 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
                 .requestMatchers("/auth/**").permitAll()
                 .anyRequest().authenticated()
             )

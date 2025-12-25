@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.AuthRequestDTO;
 import com.example.demo.dto.AuthResponseDTO;
+import com.example.demo.model.AuthProvider;
 import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.dto.RefreshTokenRequestDTO;
@@ -37,6 +38,7 @@ public class AuthService {
         User u = new User();
         u.setUsername(req.getUsername());
         u.setPassword(passwordEncoder.encode(req.getPassword()));
+        u.setProvider(AuthProvider.LOCAL);
         userRepository.save(u);
         String token = jwtUtil.generateToken(u.getUsername());
         String refreshToken = jwtUtil.generateRefreshToken(u.getUsername());
