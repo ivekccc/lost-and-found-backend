@@ -15,20 +15,20 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String SECRET;
 
-    public String generateToken(String username) {
+    public String generateToken(String email) {
         long expiresInMs = 1000 * 60 * 60 * 10; // 10 sati
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiresInMs))
                 .signWith(SignatureAlgorithm.HS256, SECRET)
                 .compact();
     }
 
-    public String generateRefreshToken(String username) {
+    public String generateRefreshToken(String email) {
         long expiresInMs = 1000L * 60 * 60 * 24 * 7; // 7 dana
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiresInMs))
                 .signWith(SignatureAlgorithm.HS256, SECRET)

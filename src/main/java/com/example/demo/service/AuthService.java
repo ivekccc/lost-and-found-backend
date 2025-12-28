@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AuthRequestDTO;
+import com.example.demo.dto.RegisterRequestDto;
 import com.example.demo.dto.AuthResponseDTO;
 import com.example.demo.model.AuthProvider;
 import com.example.demo.model.User;
@@ -34,23 +35,27 @@ public class AuthService {
         this.userDetailsService = userDetailsService;
     }
 
-    public AuthResponseDTO register(AuthRequestDTO req) {
+    public AuthResponseDTO register(RegisterRequestDto req) {
         User u = new User();
-        u.setUsername(req.getUsername());
+        u.setEmail(req.getEmail());
         u.setPassword(passwordEncoder.encode(req.getPassword()));
         u.setProvider(AuthProvider.LOCAL);
+        u.setFirstName(req.getFirstName());
+        u.setLastName(req.getLastName());
+        u.setUsername(req.getUsername());
+        u.setPhoneNumber(req.getPhoneNumber());
         userRepository.save(u);
-        String token = jwtUtil.generateToken(u.getUsername());
-        String refreshToken = jwtUtil.generateRefreshToken(u.getUsername());
+        String token = jwtUtil.generateToken(u.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(u.getEmail());
         return new AuthResponseDTO(token, refreshToken, "User registered");
     }
 
     public AuthResponseDTO login(AuthRequestDTO req) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
+            new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
         );
-        String token = jwtUtil.generateToken(req.getUsername());
-        String refreshToken = jwtUtil.generateRefreshToken(req.getUsername());
+        String token = jwtUtil.generateToken(req.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(req.getEmail());
         return new AuthResponseDTO(token, refreshToken, "Login successful");
     }
 

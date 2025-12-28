@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.AuthRequestDTO;
+import com.example.demo.dto.RegisterRequestDto;
 import com.example.demo.dto.AuthResponseDTO;
 import com.example.demo.dto.RefreshTokenRequestDTO;
 import com.example.demo.dto.RefreshTokenResponseDTO;
@@ -30,7 +31,7 @@ public class AuthController {
 
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody AuthRequestDTO req) {
+    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDto req) {
         AuthResponseDTO response = authService.register(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

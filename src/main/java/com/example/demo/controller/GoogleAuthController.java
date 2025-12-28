@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,10 +34,15 @@ public class GoogleAuthController {
         }
         String email = (String) googleUser.get("email");
         String googleId = (String) googleUser.get("sub");
+        String firstName = (String) googleUser.get("given_name");
+        String lastName = (String) googleUser.get("family_name");
         Optional<User> userOpt = userRepository.findByEmail(email);
         User user = userOpt.orElseGet(() -> {
             User newUser = new User();
             newUser.setEmail(email);
+            newUser.setFirstName(firstName);
+            newUser.setLastName(lastName);
+            newUser.setCreatedAt(new Date());
             newUser.setProvider(AuthProvider.GOOGLE);
             newUser.setGoogleId(googleId);
             newUser.setUsername(email);

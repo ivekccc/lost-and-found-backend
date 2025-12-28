@@ -3,6 +3,8 @@ package com.example.demo.model;
 import jakarta.persistence.*;
 import com.example.demo.model.AuthProvider;
 
+import java.util.Date;
+
 @Entity
 @Table(name = "users")
 
@@ -14,8 +16,13 @@ public class User {
     @Column(unique = true)
     private String email;
 
+    @Column private String firstName;
+    @Column private String lastName;
     @Column
     private String username;
+
+    @Column private String phoneNumber;
+    @Column private Date createdAt;
 
     private String password;
 
@@ -73,4 +80,40 @@ public class User {
     public void setGoogleId(String googleId) {
         this.googleId = googleId;
     }
+    // firstName
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    // lastName
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    // phoneNumber
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    // createdAt
+    public Date getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Date createdAt) {
+        this.createdAt = createdAt;
+    }
+
 }
