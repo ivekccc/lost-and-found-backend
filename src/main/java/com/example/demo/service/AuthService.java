@@ -17,6 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
+
 @Service
 public class AuthService {
     private final UserRepository userRepository;
@@ -46,17 +48,18 @@ public class AuthService {
             throw new UserAlreadyExistsException("Username already exists");
         }
 
-        User u = new User();
-        u.setEmail(req.getEmail());
-        u.setPassword(passwordEncoder.encode(req.getPassword()));
-        u.setProvider(AuthProvider.LOCAL);
-        u.setFirstName(req.getFirstName());
-        u.setLastName(req.getLastName());
-        u.setUsername(req.getUsername());
-        u.setPhoneNumber(req.getPhoneNumber());
-        userRepository.save(u);
-        String token = jwtUtil.generateToken(u.getEmail());
-        String refreshToken = jwtUtil.generateRefreshToken(u.getEmail());
+        User user = new User();
+        user.setEmail(req.getEmail());
+        user.setPassword(passwordEncoder.encode(req.getPassword()));
+        user.setProvider(AuthProvider.LOCAL);
+        user.setFirstName(req.getFirstName());
+        user.setLastName(req.getLastName());
+        user.setUsername(req.getUsername());
+        user.setPhoneNumber(req.getPhoneNumber());
+        user.setCreatedAt(new Date());
+        userRepository.save(user);
+        String token = jwtUtil.generateToken(user.getEmail());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
         return new AuthResponseDTO(token, refreshToken, "User registered");
     }
 
