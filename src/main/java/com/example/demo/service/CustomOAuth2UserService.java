@@ -20,17 +20,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         OAuth2User oAuth2User = super.loadUser(userRequest);
         String email = oAuth2User.getAttribute("email");
         String googleId = oAuth2User.getAttribute("sub");
-        User user = userRepository.findByEmail(email)
+        userRepository.findByEmail(email)
             .orElseGet(() -> {
                 User newUser = new User();
                 newUser.setEmail(email);
                 newUser.setProvider(AuthProvider.GOOGLE);
                 newUser.setGoogleId(googleId);
-                // Ostala polja po potrebi (npr. username = email)
                 newUser.setUsername(email);
                 return userRepository.save(newUser);
             });
-        // Možeš vratiti custom principal ako želiš
         return oAuth2User;
     }
 }

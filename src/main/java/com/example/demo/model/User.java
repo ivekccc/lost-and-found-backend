@@ -1,8 +1,6 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
-import com.example.demo.model.AuthProvider;
-
 import java.util.Date;
 
 @Entity
