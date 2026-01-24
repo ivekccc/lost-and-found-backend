@@ -18,6 +18,12 @@ public class GlobalExceptionHandler {
             .body(new AuthResponseDTO(null, null, "Invalid username or password"));
     }
 
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<AuthResponseDTO> handleUserAlreadyExists(UserAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new AuthResponseDTO(null, null, ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<AuthResponseDTO> handleValidationException(MethodArgumentNotValidException ex) {

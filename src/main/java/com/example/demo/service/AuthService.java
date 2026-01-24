@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.AuthRequestDTO;
 import com.example.demo.dto.RegisterRequestDto;
 import com.example.demo.dto.AuthResponseDTO;
+import com.example.demo.exception.UserAlreadyExistsException;
 import com.example.demo.model.AuthProvider;
 import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
@@ -36,6 +37,13 @@ public class AuthService {
     }
 
     public AuthResponseDTO register(RegisterRequestDto req) {
+        if (userRepository.findByEmail(req.getEmail()).isPresent()) {
+            throw new UserAlreadyExistsException("Email already exists");
+        }
+        if (userRepository.findByUsername(req.getUsername()).isPresent()) {
+            throw new UserAlreadyExistsException("Username already exists");
+        }
+
         User u = new User();
         u.setEmail(req.getEmail());
         u.setPassword(passwordEncoder.encode(req.getPassword()));
