@@ -7,6 +7,7 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.service.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,6 +18,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Tag(name = "Auth", description = "Authentication endpoints")
 public class GoogleAuthController {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
