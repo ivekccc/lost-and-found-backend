@@ -28,6 +28,7 @@ public class GoogleAuthController {
         // Verifikuj Google token
         RestTemplate restTemplate = new RestTemplate();
         String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+        @SuppressWarnings("unchecked")
         Map<String, Object> googleUser = restTemplate.getForObject(url, Map.class);
         if (googleUser == null || googleUser.get("email") == null) {
             return ResponseEntity.badRequest().body(new AuthResponseDTO(null, null, "Invalid Google token"));
