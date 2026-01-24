@@ -1,7 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AuthRequestDTO;
-import com.example.demo.dto.RegisterRequestDto;
+import com.example.demo.dto.RegisterRequestDTO;
 import com.example.demo.dto.AuthResponseDTO;
 import com.example.demo.exception.UserAlreadyExistsException;
 import com.example.demo.model.AuthProvider;
@@ -40,7 +40,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponseDTO register(RegisterRequestDto req) {
+    public AuthResponseDTO register(RegisterRequestDTO req) {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
             throw new UserAlreadyExistsException("Email already exists");
         }

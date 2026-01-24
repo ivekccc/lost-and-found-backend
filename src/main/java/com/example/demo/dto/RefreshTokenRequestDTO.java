@@ -1,13 +1,8 @@
 package com.example.demo.dto;
 
+import lombok.Data;
+
+@Data
 public class RefreshTokenRequestDTO {
     private String refreshToken;
-
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
 }
