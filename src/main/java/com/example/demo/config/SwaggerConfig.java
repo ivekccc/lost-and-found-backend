@@ -31,6 +31,7 @@ public class SwaggerConfig {
                         .bearerFormat("JWT")));
     }
 
+    @SuppressWarnings("rawtypes")
     @Bean
     public OpenApiCustomizer disableAdditionalProperties() {
         return openApi -> {
