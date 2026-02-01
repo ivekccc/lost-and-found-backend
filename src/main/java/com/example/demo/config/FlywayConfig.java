@@ -1,25 +1,28 @@
 package com.example.demo.config;
 
+import jakarta.annotation.PostConstruct;
 import org.flywaydb.core.Flyway;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 
-@Configuration
+@Component
 public class FlywayConfig {
 
-    @Bean
-    @Order(1)
-    public Flyway flyway(DataSource dataSource) {
-        Flyway flyway = Flyway.configure()
+    private final DataSource dataSource;
+
+    public FlywayConfig(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    @PostConstruct
+    public void migrate() {
+        Flyway.configure()
                 .dataSource(dataSource)
-                .locations("classpath:db/migration")
+                .locations("classpath:db/migration", "classpath:db/seed")
                 .baselineOnMigrate(true)
                 .cleanDisabled(true)
-                .load();
-        flyway.migrate();
-        return flyway;
+                .load()
+                .migrate();
     }
 }
