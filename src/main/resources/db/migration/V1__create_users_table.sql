@@ -1,4 +1,3 @@
--- V1: Create users table
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -7,5 +6,4 @@ CREATE TABLE users (
     created_at TIMESTAMP NOT NULL
 );
 
--- Index for faster email lookups
 CREATE INDEX idx_users_email ON users(email);
