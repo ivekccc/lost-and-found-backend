@@ -37,6 +37,7 @@ public class AuthService {
 
         User user = new User();
         user.setEmail(req.getEmail());
+        user.setUsername(req.getUsername());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
