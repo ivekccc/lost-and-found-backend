@@ -4,8 +4,8 @@ import com.example.demo.dto.AuthRequestDTO;
 import com.example.demo.dto.RegisterRequestDTO;
 import com.example.demo.dto.AuthResponseDTO;
 import com.example.demo.exception.UserAlreadyExistsException;
-import com.example.demo.model.AuthProvider;
 import com.example.demo.model.User;
+import com.example.demo.model.UserStatus;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.dto.RefreshTokenRequestDTO;
 import com.example.demo.dto.RefreshTokenResponseDTO;
@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -34,20 +34,14 @@ public class AuthService {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
             throw new UserAlreadyExistsException("Email already exists");
         }
-        if (userRepository.findByUsername(req.getUsername()).isPresent()) {
-            throw new UserAlreadyExistsException("Username already exists");
-        }
 
         User user = new User();
         user.setEmail(req.getEmail());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
-        user.setProvider(AuthProvider.LOCAL);
-        user.setFirstName(req.getFirstName());
-        user.setLastName(req.getLastName());
-        user.setUsername(req.getUsername());
-        user.setPhoneNumber(req.getPhoneNumber());
-        user.setCreatedAt(new Date());
+        user.setStatus(UserStatus.ACTIVE);
+        user.setCreatedAt(LocalDateTime.now());
         userRepository.save(user);
+
         String token = jwtUtil.generateToken(user.getEmail());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
         return new AuthResponseDTO(token, refreshToken, "User registered");
