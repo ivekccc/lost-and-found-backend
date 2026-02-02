@@ -24,14 +24,17 @@ src/main/java/com/example/demo/
 │   └── FlywayConfig.java
 ├── controller/
 │   ├── AuthController.java
-│   └── HelloController.java
+│   ├── HelloController.java
+│   └── ReportController.java
 ├── dto/
 │   ├── AuthRequestDTO.java
 │   ├── AuthResponseDTO.java
 │   ├── RegisterRequestDTO.java
 │   ├── RefreshTokenRequestDTO.java
 │   ├── RefreshTokenResponseDTO.java
-│   └── ErrorResponseDTO.java
+│   ├── ErrorResponseDTO.java
+│   ├── ReportListDTO.java
+│   └── ReportDetailsDTO.java
 ├── exception/
 │   ├── GlobalExceptionHandler.java
 │   └── UserAlreadyExistsException.java
@@ -48,6 +51,7 @@ src/main/java/com/example/demo/
 │   └── ReportCategoryRepository.java
 ├── service/
 │   ├── AuthService.java
+│   ├── ReportService.java
 │   ├── JwtUtil.java
 │   ├── JwtAuthFilter.java
 │   └── MyUserDetailsService.java
@@ -126,6 +130,34 @@ spring.flyway.enabled=false
 
 - **Swagger UI**: http://localhost:8082/swagger-ui.html
 - **OpenAPI JSON**: http://localhost:8082/v3/api-docs
+
+### Report Endpoints
+
+| Method | Endpoint | Opis | Response |
+|--------|----------|------|----------|
+| GET | `/reports/{id}` | Detalji reporta | `ReportDetailsDTO` |
+
+## Enum definicije za NSwag
+
+Da bi NSwag generisao zajedničke enum tipove (umjesto inline duplicate), enum klase moraju imati `@Schema(enumAsRef = true)`:
+
+```java
+@Schema(name = "ReportType", enumAsRef = true)
+public enum ReportType {
+    LOST,
+    FOUND
+}
+```
+
+Ovo osigurava da NSwag generiše:
+```typescript
+export enum ReportType { LOST = "LOST", FOUND = "FOUND" }
+```
+
+Umjesto:
+```typescript
+export enum ReportDetailsDTOType { LOST = "LOST", FOUND = "FOUND" }
+```
 
 ## Seed korisnici
 

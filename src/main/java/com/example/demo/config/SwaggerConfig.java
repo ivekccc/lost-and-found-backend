@@ -33,7 +33,7 @@ public class SwaggerConfig {
 
     @SuppressWarnings("rawtypes")
     @Bean
-    public OpenApiCustomizer disableAdditionalProperties() {
+    public OpenApiCustomizer openApiCustomizer() {
         return openApi -> {
             if (openApi.getComponents() != null && openApi.getComponents().getSchemas() != null) {
                 Map<String, Schema> schemas = openApi.getComponents().getSchemas();
