@@ -37,9 +37,15 @@ src/main/java/com/example/demo/
 │   └── UserAlreadyExistsException.java
 ├── model/
 │   ├── User.java
-│   └── UserStatus.java
+│   ├── UserStatus.java
+│   ├── Report.java
+│   ├── ReportType.java
+│   ├── ReportStatus.java
+│   └── ReportCategory.java
 ├── repository/
-│   └── UserRepository.java
+│   ├── UserRepository.java
+│   ├── ReportRepository.java
+│   └── ReportCategoryRepository.java
 ├── service/
 │   ├── AuthService.java
 │   ├── JwtUtil.java
@@ -52,9 +58,12 @@ src/main/resources/
 └── db/
     ├── migration/
     │   ├── V1__create_users_table.sql
-    │   └── V2__add_username_to_users.sql
+    │   ├── V2__add_username_to_users.sql
+    │   └── V3__create_report_tables.sql
     └── seed/
-        └── R__seed_users.sql
+        ├── R__seed_users.sql
+        ├── R__seed_report_categories.sql
+        └── R__seed_reports.sql
 ```
 
 ## Flyway
@@ -124,3 +133,40 @@ spring.flyway.enabled=false
 |-------|----------|----------|
 | user1@lostandfound.com | user1 | password123 |
 | user2@lostandfound.com | user2 | password123 |
+
+## Seed kategorije prijava
+
+| Kategorija |
+|------------|
+| Electronics |
+| Documents |
+| Keys |
+| Wallet |
+| Jewelry |
+| Clothing |
+| Bags |
+| Pets |
+| Other |
+
+## Seed reports
+
+| Title | Type | Category | Status | User |
+|-------|------|----------|--------|------|
+| Lost iPhone 15 Pro | LOST | Electronics | ACTIVE | user1 |
+| Found car keys near park | FOUND | Keys | ACTIVE | user2 |
+| Lost brown leather wallet | LOST | Wallet | ACTIVE | user1 |
+| Found golden ring | FOUND | Jewelry | ACTIVE | user2 |
+| Lost black backpack | LOST | Bags | RESOLVED | user1 |
+
+## Report entiteti
+
+### ReportType (enum)
+- `LOST` - Izgubljen predmet
+- `FOUND` - Pronađen predmet
+
+### ReportStatus (enum)
+- `ACTIVE` - Aktivna prijava
+- `RESOLVED` - Riješeno (predmet vraćen)
+- `EXPIRED` - Istekla prijava
+- `FLAGGED` - Označena za pregled
+- `DELETED` - Obrisana (soft delete)
