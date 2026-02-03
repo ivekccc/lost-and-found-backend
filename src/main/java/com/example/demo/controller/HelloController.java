@@ -7,9 +7,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Tag(name = "Test", description = "Test endpoints")
 public class HelloController {
+
     @GetMapping("/secret")
     public String secret() {
         return "Ovo je tajni string!";
     }
+
+
 
 }

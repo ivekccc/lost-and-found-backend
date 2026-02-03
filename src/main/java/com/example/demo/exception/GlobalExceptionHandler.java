@@ -33,6 +33,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponseDTO(message, HttpStatus.BAD_REQUEST.value()));
     }
+    @ExceptionHandler(InvalidVerificationException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidVerification(InvalidVerificationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponseDTO(ex.getMessage(),
+    HttpStatus.BAD_REQUEST.value()));
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleOtherExceptions(Exception ex) {

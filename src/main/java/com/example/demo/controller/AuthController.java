@@ -1,10 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.AuthRequestDTO;
-import com.example.demo.dto.RegisterRequestDTO;
-import com.example.demo.dto.AuthResponseDTO;
-import com.example.demo.dto.RefreshTokenRequestDTO;
-import com.example.demo.dto.RefreshTokenResponseDTO;
+import com.example.demo.dto.*;
 import com.example.demo.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,9 +19,15 @@ import jakarta.validation.Valid;
 public class AuthController {
     private final AuthService authService;
 
+    @PostMapping("/verify")
+    public ResponseEntity<AuthResponseDTO> verify(@Valid @RequestBody VerifyRequestDTO req) {
+        AuthResponseDTO response = authService.verifyCode(req);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDTO req) {
-        AuthResponseDTO response = authService.register(req);
+    public ResponseEntity<MessageResponseDTO> register(@Valid @RequestBody RegisterRequestDTO req) {
+        MessageResponseDTO response = authService.register(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
