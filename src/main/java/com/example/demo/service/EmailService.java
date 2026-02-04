@@ -43,6 +43,7 @@ public class EmailService {
     }
     private String buildVerificationEmailHtml(String code) {
         Context context = new Context();
-        context.setVariable("code", code);
-        return templateEngine.process("email/verification", context);    }
+        context.setVariable("codeChars", code.chars().mapToObj(c -> String.valueOf((char) c)).toList());
+        return templateEngine.process("email/verification", context);
+    }
 }
