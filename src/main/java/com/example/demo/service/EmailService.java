@@ -1,36 +1,48 @@
 package com.example.demo.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.demo.exception.EmailSendException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    private final JavaMailSender mailSender;
+    private final TemplateEngine templateEngine;
 
     @Value("${spring.mail.username}")
     private String fromMail;
 
-    @Async
-    public void sendVerificationEmail(String to, String code) {
-        log.info("Sending verification email to: {}", to);
-        SimpleMailMessage message =new SimpleMailMessage();
-        message.setFrom(fromMail);
-        message.setTo(to);
-        message.setSubject("Lost & Found - Email Verification");
-        message.setText(
-                "Your verification code is: " + code + "\n\n" +
-                        "This code expires in 15 minutes.\n\n" +
-                        "If you didn't request this, please ignore this email."
-        );
 
-        mailSender.send(message);
+    public void sendVerificationEmail(String to, String code) {
+        try {
+          MimeMessage message = mailSender.createMimeMessage();
+          MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+          helper.setFrom(fromMail);
+          helper.setTo(to);
+          helper.setSubject("Lost & Found - Email Verification");
+          helper.setText(buildVerificationEmailHtml(code), true);
+
+          mailSender.send(message);
+          log.info("Verification email sent to: {}", to);
+      } catch (Exception e) {
+          log.error("Failed to send verification email to: {}", to, e);
+          throw new EmailSendException("Failed to send verification email. Please try again later.");
+      }
     }
+    private String buildVerificationEmailHtml(String code) {
+        Context context = new Context();
+        context.setVariable("code", code);
+        return templateEngine.process("email/verification", context);    }
 }

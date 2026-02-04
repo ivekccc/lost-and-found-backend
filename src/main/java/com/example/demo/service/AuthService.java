@@ -41,8 +41,7 @@ public class AuthService {
             throw new UserAlreadyExistsException("Email already exists");
         }
 
-        preRegistrationRepository.findByEmail(req.getEmail())
-                .ifPresent(preRegistrationRepository::delete);
+        preRegistrationRepository.deleteByEmail(req.getEmail());
 
         String code = VerificationCodeGenerator.generateVerificationCode();
 

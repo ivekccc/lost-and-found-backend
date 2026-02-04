@@ -313,3 +313,35 @@ Greške se obrađuju globalno u `GlobalExceptionHandler` i vraćaju `ErrorRespon
 | POST | `/auth/verify` | Verify email | `AuthResponseDTO` |
 | POST | `/auth/login` | Login | `AuthResponseDTO` |
 | POST | `/auth/refresh` | Refresh token | `RefreshTokenResponseDTO` |
+
+## Email Templates
+
+- Koristimo **Thymeleaf** za HTML email template-e
+- Template-i se čuvaju u `src/main/resources/templates/email/`
+- Nakon promene template fajla: `mvn clean compile` (keširanje u target/)
+
+## Exception Handling
+
+- Svaka vrsta greške ima **custom exception** + handler u `GlobalExceptionHandler`
+- NE vraćaj generičke 500 greške korisniku - uvek smislena poruka
+
+| Exception | HTTP Status |
+|-----------|-------------|
+| `EmailSendException` | 503 SERVICE_UNAVAILABLE |
+| `DataIntegrityViolationException` | 409 CONFLICT |
+
+## JPA Repository pravila
+
+- **NE koristi** derived delete metode (`deleteByEmail`) - rade SELECT + DELETE
+- **KORISTI** `@Query` za direktan DELETE:
+
+```java
+@Modifying
+@Query("DELETE FROM Entity e WHERE e.field = :value")
+void deleteByField(String value);
+```
+
+## @Transactional
+
+- Uvek na service metodama koje rade više operacija
+- Garantuje **atomicity** - ako bilo šta baci exception, sve se ROLLBACK-uje

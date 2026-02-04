@@ -40,6 +40,11 @@ public class GlobalExceptionHandler {
     HttpStatus.BAD_REQUEST.value()));
     }
 
+    @ExceptionHandler(EmailSendException.class)
+    public ResponseEntity<ErrorResponseDTO> handleEmailSendException(EmailSendException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.SERVICE_UNAVAILABLE.value()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleOtherExceptions(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
