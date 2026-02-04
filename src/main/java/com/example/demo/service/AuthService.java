@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
+import com.example.demo.exception.InvalidTokenException;
 import com.example.demo.exception.InvalidVerificationException;
 import com.example.demo.exception.UserAlreadyExistsException;
 import com.example.demo.model.PreRegistration;
@@ -97,9 +98,11 @@ public class AuthService {
         String refreshToken = req.getRefreshToken();
         String username = jwtUtil.extractUsername(refreshToken);
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
         if (!jwtUtil.validateRefreshToken(refreshToken, userDetails)) {
-            return new RefreshTokenResponseDTO(null, null, "Invalid refresh token");
+            throw new InvalidTokenException("Invalid refresh token");
         }
+
         String newAccessToken = jwtUtil.generateToken(username);
         String newRefreshToken = jwtUtil.generateRefreshToken(username);
         return new RefreshTokenResponseDTO(newAccessToken, newRefreshToken, "Token refreshed");

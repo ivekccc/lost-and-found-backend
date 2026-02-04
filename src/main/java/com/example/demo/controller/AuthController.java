@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,11 +38,7 @@ public class AuthController {
     @PostMapping("/refresh")
     @Operation(summary = "Refresh token", description = "Returns new access and refresh tokens")
     public ResponseEntity<RefreshTokenResponseDTO> refresh(@RequestBody RefreshTokenRequestDTO req) {
-        RefreshTokenResponseDTO response = authService.refreshToken(req);
-        if (response.getAccessToken() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
-        }
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(authService.refreshToken(req));
     }
 
     @PostMapping("/login")
