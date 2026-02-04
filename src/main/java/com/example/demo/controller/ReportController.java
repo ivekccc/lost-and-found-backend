@@ -20,6 +20,9 @@ public class ReportController {
 
     @GetMapping
     @Operation(summary = "Get all reports", description = "Returns a list of all active reports")
+    // @ApiResponses(value = {
+    //     @ApiResponse(responseCode = "200", description = "Successfully retrieved list")
+    // })
     public ResponseEntity<List<ReportListDTO>> getAllReports() {
         List<ReportListDTO> reports = reportService.getAllReports();
         return ResponseEntity.ok(reports);
