@@ -1,5 +1,7 @@
 # Lost and Found Backend
 
+> **VAŽNO ZA CLAUDE:** Pre svake akcije koju dobiješ kao zadatak, OBAVEZNO pročitaj ovaj CLAUDE.md fajl i proveri koje prakse koristimo u projektu. Prati ustanovljene konvencije i pattern-e opisane ovde.
+
 ## Pregled projekta
 
 Spring Boot 4.0.1 REST API aplikacija za Lost and Found platformu. Koristi Java 21, PostgreSQL bazu i JWT autentifikaciju.
