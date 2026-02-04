@@ -44,7 +44,7 @@ public class AuthService {
         preRegistrationRepository.findByEmail(req.getEmail())
                 .ifPresent(preRegistrationRepository::delete);
 
-        String code = VerificationCodeGenerator.generateVerificationCode(6);
+        String code = VerificationCodeGenerator.generateVerificationCode();
 
         PreRegistration preReg = new PreRegistration();
         preReg.setEmail(req.getEmail());
@@ -62,7 +62,7 @@ public class AuthService {
     public AuthResponseDTO verifyCode(VerifyRequestDTO req) {
 
         PreRegistration preReg = preRegistrationRepository
-                .findByEmailAndVerificationCode(req.getEmail(), req.getCode())
+                .findByVerificationCode( req.getCode())
                 .orElseThrow(() -> new InvalidVerificationException("Invalid verification code"));
 
         if (preReg.getExpiresAt().isBefore(LocalDateTime.now())) {

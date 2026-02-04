@@ -10,7 +10,7 @@ import java.util.Optional;
 
 public interface PreRegistrationRepository extends  JpaRepository<PreRegistration,Long> {
     Optional<PreRegistration> findByEmail(String email);
-    Optional<PreRegistration> findByEmailAndVerificationCode(String email, String verificationCode);
+    Optional<PreRegistration> findByVerificationCode(String verificationCode);
 
     @Modifying
     int deleteByExpiresAtBefore(LocalDateTime dateTime);
