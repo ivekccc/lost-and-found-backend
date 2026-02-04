@@ -202,3 +202,112 @@ export enum ReportDetailsDTOType { LOST = "LOST", FOUND = "FOUND" }
 - `EXPIRED` - Istekla prijava
 - `FLAGGED` - Označena za pregled
 - `DELETED` - Obrisana (soft delete)
+
+## Swagger/OpenAPI dokumentacija endpointa
+
+### Potrebna konfiguracija (application.properties)
+
+```properties
+springdoc.api-docs.version=openapi_3_0
+```
+
+**VAŽNO:** Koristimo OpenAPI 3.0 umesto 3.1 jer 3.1 ima bug sa `@ArraySchema` - ne generiše `"type": "array"`.
+
+### Dokumentovanje endpointa
+
+Svaki endpoint MORA imati `@Operation` anotaciju sa `summary` i `description`:
+
+```java
+@PostMapping("/login")
+@Operation(summary = "Login", description = "Authenticates user and returns auth tokens")
+public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO req) {
+    // ...
+}
+```
+
+### Endpoint koji vraća 204 No Content
+
+Kada endpoint ne vraća body (npr. register koji samo šalje email):
+
+```java
+@PostMapping("/register")
+@Operation(summary = "Register new user", description = "Sends verification code to email")
+@ApiResponse(responseCode = "204", description = "Verification code sent successfully")
+public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequestDTO req) {
+    authService.register(req);
+    return ResponseEntity.noContent().build();
+}
+```
+
+- Koristi `ResponseEntity<Void>` kao return type
+- Dodaj `@ApiResponse(responseCode = "204", ...)` da Swagger prikaže 204 umesto 200
+- Service metoda vraća `void`
+
+### Endpoint koji vraća listu (Array)
+
+Za pravilno prikazivanje tipa u Swagger-u (npr. `array<ReportListDTO>` umesto `array<object>`):
+
+```java
+@GetMapping
+@Operation(summary = "Get all reports", description = "Returns a list of all active reports")
+@ApiResponses(value = {
+    @ApiResponse(
+        responseCode = "200",
+        description = "Successfully retrieved list",
+        content = @Content(
+            mediaType = "application/json",
+            array = @ArraySchema(schema = @Schema(implementation = ReportListDTO.class))
+        )
+    )
+})
+public ResponseEntity<List<ReportListDTO>> getAllReports() {
+    // ...
+}
+```
+
+**Potrebni importi:**
+```java
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+```
+
+### DTO klase
+
+DTO klase mogu imati `@Schema` anotaciju za bolji opis u Swagger-u:
+
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Schema(name = "ReportListDTO", description = "Report summary for list view")
+public class ReportListDTO {
+    private Long id;
+    private String title;
+    // ...
+}
+```
+
+### Error handling
+
+Greške se obrađuju globalno u `GlobalExceptionHandler` i vraćaju `ErrorResponseDTO`:
+
+| Exception | HTTP Status | Opis |
+|-----------|-------------|------|
+| `UserAlreadyExistsException` | 409 CONFLICT | Email već postoji |
+| `InvalidVerificationException` | 400 BAD_REQUEST | Pogrešan/istekao kod |
+| `MethodArgumentNotValidException` | 400 BAD_REQUEST | Validaciona greška |
+| `BadCredentialsException` | 401 UNAUTHORIZED | Pogrešan email/password |
+| `Exception` | 500 INTERNAL_SERVER_ERROR | Neočekivana greška |
+
+## Auth Endpoints
+
+| Method | Endpoint | Summary | Response |
+|--------|----------|---------|----------|
+| POST | `/auth/register` | Register new user | 204 No Content |
+| POST | `/auth/verify` | Verify email | `AuthResponseDTO` |
+| POST | `/auth/login` | Login | `AuthResponseDTO` |
+| POST | `/auth/refresh` | Refresh token | `RefreshTokenResponseDTO` |

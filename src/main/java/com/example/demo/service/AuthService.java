@@ -36,7 +36,7 @@ public class AuthService {
     private int codeExpiryMinutes;
 
     @Transactional
-    public MessageResponseDTO register(RegisterRequestDTO req) {
+    public void register(RegisterRequestDTO req) {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
             throw new UserAlreadyExistsException("Email already exists");
         }
@@ -56,8 +56,6 @@ public class AuthService {
         preRegistrationRepository.save(preReg);
 
         emailService.sendVerificationEmail(req.getEmail(), code);
-
-        return new MessageResponseDTO("Verification code sent to email");
     }
 
     @Transactional
