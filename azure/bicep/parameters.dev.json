@@ -14,7 +14,7 @@
     "postgresAdminPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+          "id": "/subscriptions/REPLACE_WITH_SUBSCRIPTION_ID/resourceGroups/REPLACE_WITH_RG_NAME/providers/Microsoft.KeyVault/vaults/REPLACE_WITH_VAULT_NAME"
         },
         "secretName": "postgres-admin-password"
       }
@@ -22,18 +22,18 @@
     "jwtSecret": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+          "id": "/subscriptions/REPLACE_WITH_SUBSCRIPTION_ID/resourceGroups/REPLACE_WITH_RG_NAME/providers/Microsoft.KeyVault/vaults/REPLACE_WITH_VAULT_NAME"
         },
         "secretName": "jwt-secret"
       }
     },
     "mailUsername": {
-      "value": "REPLACE_WITH_YOUR_EMAIL@gmail.com"
+      "value": "REPLACE_WITH_YOUR_EMAIL@example.com"
     },
     "mailPassword": {
       "reference": {
         "keyVault": {
-          "id": "/subscriptions/{subscription-id}/resourceGroups/{rg-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+          "id": "/subscriptions/REPLACE_WITH_SUBSCRIPTION_ID/resourceGroups/REPLACE_WITH_RG_NAME/providers/Microsoft.KeyVault/vaults/REPLACE_WITH_VAULT_NAME"
         },
         "secretName": "mail-password"
       }

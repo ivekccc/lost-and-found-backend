@@ -9,9 +9,9 @@ pool:
 variables:
   MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
-  azureSubscription: 'YOUR_AZURE_SUBSCRIPTION'  # Update this
-  webAppName: 'lost-and-found-backend'          # Update this
-  containerRegistry: 'YOUR_ACR_NAME.azurecr.io' # Update this
+  azureSubscription: 'REPLACE_WITH_YOUR_AZURE_SUBSCRIPTION_NAME'
+  webAppName: 'REPLACE_WITH_YOUR_WEBAPP_NAME'
+  containerRegistry: 'REPLACE_WITH_YOUR_ACR_NAME.azurecr.io'
   dockerImageName: 'lost-and-found-backend'
   
 stages:
