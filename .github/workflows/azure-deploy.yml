@@ -11,6 +11,10 @@ env:
   JAVA_VERSION: '21'
   DOCKER_IMAGE_NAME: lost-and-found-backend
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
