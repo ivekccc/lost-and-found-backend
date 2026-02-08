@@ -1,0 +1,101 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+  MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
+  azureSubscription: 'YOUR_AZURE_SUBSCRIPTION'  # Update this
+  webAppName: 'lost-and-found-backend'          # Update this
+  containerRegistry: 'YOUR_ACR_NAME.azurecr.io' # Update this
+  dockerImageName: 'lost-and-found-backend'
+  
+stages:
+- stage: Build
+  displayName: 'Build Application'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build and Test'
+    steps:
+    - task: Cache@2
+      displayName: 'Cache Maven local repo'
+      inputs:
+        key: 'maven | "$(Agent.OS)" | **/pom.xml'
+        restoreKeys: |
+          maven | "$(Agent.OS)"
+          maven
+        path: $(MAVEN_CACHE_FOLDER)
+    
+    - task: Maven@3
+      displayName: 'Maven Build'
+      inputs:
+        mavenPomFile: 'pom.xml'
+        goals: 'clean package'
+        options: '-DskipTests'
+        publishJUnitResults: false
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.21'
+        mavenVersionOption: 'Default'
+        
+    - task: CopyFiles@2
+      displayName: 'Copy JAR files'
+      inputs:
+        Contents: 'target/*.jar'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+
+- stage: Docker
+  displayName: 'Build and Push Docker Image'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: DockerJob
+    displayName: 'Docker Build and Push'
+    steps:
+    - task: Docker@2
+      displayName: 'Build Docker Image'
+      inputs:
+        command: build
+        repository: $(dockerImageName)
+        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        tags: |
+          $(Build.BuildId)
+          latest
+    
+    - task: Docker@2
+      displayName: 'Push to Container Registry'
+      inputs:
+        command: push
+        repository: $(dockerImageName)
+        containerRegistry: $(containerRegistry)
+        tags: |
+          $(Build.BuildId)
+          latest
+
+- stage: Deploy
+  displayName: 'Deploy to Azure'
+  dependsOn: Docker
+  condition: succeeded()
+  jobs:
+  - deployment: DeployWeb
+    displayName: 'Deploy to Azure Web App'
+    environment: 'production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureWebAppContainer@1
+            displayName: 'Deploy to Azure Web App'
+            inputs:
+              azureSubscription: $(azureSubscription)
+              appName: $(webAppName)
+              containers: '$(containerRegistry)/$(dockerImageName):$(Build.BuildId)'

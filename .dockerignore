@@ -1,6 +1,5 @@
-HELP.md
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -32,20 +31,19 @@ build/
 ### VS Code ###
 .vscode/
 
-### Environment Variables ###
+### Mac ###
+.DS_Store
+
+### Git ###
+.git
+.gitignore
+.gitattributes
+
+### Documentation ###
+*.md
+!README.md
+
+### Other ###
+*.log
 .env
 .env.local
-.env.*.local
-
-### Azure ###
-.azure/
-*.publish
-*.publishsettings
-
-### Logs ###
-*.log
-logs/
-
-### OS ###
-.DS_Store
-Thumbs.db

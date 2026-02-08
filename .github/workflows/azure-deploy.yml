@@ -1,0 +1,59 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: lost-and-found-backend    # Set your Azure Web App name
+  JAVA_VERSION: '21'
+  DOCKER_IMAGE_NAME: lost-and-found-backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build with Maven
+      run: mvn clean package -DskipTests
+
+    - name: Log in to Azure Container Registry
+      if: github.event_name != 'pull_request'
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}
+        username: ${{ secrets.AZURE_CONTAINER_REGISTRY_USERNAME }}
+        password: ${{ secrets.AZURE_CONTAINER_REGISTRY_PASSWORD }}
+
+    - name: Build and push Docker image
+      if: github.event_name != 'pull_request'
+      run: |
+        docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }} .
+        docker build -t ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}/${{ env.DOCKER_IMAGE_NAME }}:latest .
+        docker push ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+        docker push ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}/${{ env.DOCKER_IMAGE_NAME }}:latest
+
+    - name: Deploy to Azure Web App
+      if: github.event_name != 'pull_request'
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        images: ${{ secrets.AZURE_CONTAINER_REGISTRY_URL }}/${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}
+
+    - name: Azure logout
+      if: always()
+      run: |
+        az logout
