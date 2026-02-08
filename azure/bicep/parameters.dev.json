@@ -28,7 +28,7 @@
       }
     },
     "mailUsername": {
-      "value": "your-email@gmail.com"
+      "value": "REPLACE_WITH_YOUR_EMAIL@gmail.com"
     },
     "mailPassword": {
       "reference": {

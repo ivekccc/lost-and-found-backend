@@ -369,6 +369,75 @@ The application exposes health endpoints via Spring Actuator:
 - Health: `https://your-app.azurewebsites.net/actuator/health`
 - Info: `https://your-app.azurewebsites.net/actuator/info`
 
+## Security Considerations
+
+### Production Security Checklist
+
+Before deploying to production, ensure:
+
+1. **PostgreSQL Security**
+   - ❌ Avoid using `--public-access 0.0.0.0` in production
+   - ✅ Use Azure Private Link or VNet integration instead
+   - ✅ Configure firewall rules to allow only specific IP ranges
+   - ✅ Enable SSL enforcement for all connections
+   - ✅ Use strong passwords (min 8 chars, uppercase, lowercase, digits)
+
+2. **Application Secrets**
+   - ❌ Never commit secrets to source control
+   - ✅ Use Azure Key Vault for storing sensitive data
+   - ✅ Rotate JWT secrets regularly
+   - ✅ Use managed identities where possible
+
+3. **Network Security**
+   - ✅ Enable HTTPS only (already configured)
+   - ✅ Configure CORS properly for your frontend domain
+   - ✅ Consider Azure Front Door for WAF capabilities
+   - ✅ Use Azure Private Endpoints for database connections
+
+4. **Access Control**
+   - ✅ Follow principle of least privilege
+   - ✅ Use Azure RBAC for resource access
+   - ✅ Enable Azure AD authentication where possible
+   - ✅ Implement proper API authentication and authorization
+
+5. **Monitoring & Auditing**
+   - ✅ Enable Application Insights
+   - ✅ Configure diagnostic logs
+   - ✅ Set up security alerts
+   - ✅ Review Azure Security Center recommendations
+
+### Using Azure Key Vault (Recommended)
+
+Instead of environment variables, use Key Vault:
+
+```bash
+# Create Key Vault
+az keyvault create \
+  --name lost-and-found-kv \
+  --resource-group lost-and-found-rg \
+  --location eastus
+
+# Store secrets
+az keyvault secret set --vault-name lost-and-found-kv --name "db-password" --value "YourPassword"
+az keyvault secret set --vault-name lost-and-found-kv --name "jwt-secret" --value "YourJwtSecret"
+
+# Enable managed identity for Web App
+az webapp identity assign \
+  --name lost-and-found-backend \
+  --resource-group lost-and-found-rg
+
+# Grant access to Key Vault
+az keyvault set-policy \
+  --name lost-and-found-kv \
+  --object-id <web-app-identity-object-id> \
+  --secret-permissions get list
+```
+
+Then reference secrets in application settings:
+```bash
+@Microsoft.KeyVault(SecretUri=https://lost-and-found-kv.vault.azure.net/secrets/db-password/)
+```
+
 ## Cost Estimation
 
 Estimated monthly costs for a development environment:

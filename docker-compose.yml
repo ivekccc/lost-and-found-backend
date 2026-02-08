@@ -27,6 +27,9 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/lost-and-found
       - DB_USERNAME=postgres
       - DB_PASSWORD=admin
+      # WARNING: Change these credentials for production use!
+      # - JWT_SECRET should be a strong, random key (minimum 256 bits)
+      # - MAIL_USERNAME and MAIL_PASSWORD should be your actual Gmail credentials
       - JWT_SECRET=your-jwt-secret-key-change-in-production
       - MAIL_USERNAME=your-email@gmail.com
       - MAIL_PASSWORD=your-app-password

@@ -51,8 +51,41 @@ PG_SERVER=${PG_SERVER:-lost-and-found-db}
 read -p "Enter PostgreSQL Admin Username [pgadmin]: " PG_ADMIN
 PG_ADMIN=${PG_ADMIN:-pgadmin}
 
-read -sp "Enter PostgreSQL Admin Password: " PG_PASSWORD
-echo
+# Function to validate password strength
+validate_password() {
+    local password=$1
+    if [ ${#password} -lt 8 ]; then
+        print_error "Password must be at least 8 characters long"
+        return 1
+    fi
+    if ! [[ "$password" =~ [A-Z] ]]; then
+        print_error "Password must contain at least one uppercase letter"
+        return 1
+    fi
+    if ! [[ "$password" =~ [a-z] ]]; then
+        print_error "Password must contain at least one lowercase letter"
+        return 1
+    fi
+    if ! [[ "$password" =~ [0-9] ]]; then
+        print_error "Password must contain at least one digit"
+        return 1
+    fi
+    return 0
+}
+
+while true; do
+    read -sp "Enter PostgreSQL Admin Password (min 8 chars, uppercase, lowercase, digit): " PG_PASSWORD
+    echo
+    if validate_password "$PG_PASSWORD"; then
+        read -sp "Confirm PostgreSQL Admin Password: " PG_PASSWORD_CONFIRM
+        echo
+        if [ "$PG_PASSWORD" = "$PG_PASSWORD_CONFIRM" ]; then
+            break
+        else
+            print_error "Passwords do not match. Please try again."
+        fi
+    fi
+done
 
 read -sp "Enter JWT Secret: " JWT_SECRET
 echo
@@ -93,17 +126,36 @@ docker push "${ACR_NAME}.azurecr.io/$APP_NAME:latest"
 
 # Create PostgreSQL server
 print_info "Creating PostgreSQL Flexible Server: $PG_SERVER"
-az postgres flexible-server create \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$PG_SERVER" \
-    --location "$LOCATION" \
-    --admin-user "$PG_ADMIN" \
-    --admin-password "$PG_PASSWORD" \
-    --sku-name Standard_B1ms \
-    --tier Burstable \
-    --storage-size 32 \
-    --version 16 \
-    --public-access 0.0.0.0
+print_warning "SECURITY NOTE: This creates a server with public access. For production, use private networking."
+read -p "Do you want to configure public access? (yes/no) [yes]: " PUBLIC_ACCESS
+PUBLIC_ACCESS=${PUBLIC_ACCESS:-yes}
+
+if [ "$PUBLIC_ACCESS" = "yes" ]; then
+    az postgres flexible-server create \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$PG_SERVER" \
+        --location "$LOCATION" \
+        --admin-user "$PG_ADMIN" \
+        --admin-password "$PG_PASSWORD" \
+        --sku-name Standard_B1ms \
+        --tier Burstable \
+        --storage-size 32 \
+        --version 16 \
+        --public-access 0.0.0.0
+else
+    print_info "Creating server with no public access (private networking required)"
+    az postgres flexible-server create \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$PG_SERVER" \
+        --location "$LOCATION" \
+        --admin-user "$PG_ADMIN" \
+        --admin-password "$PG_PASSWORD" \
+        --sku-name Standard_B1ms \
+        --tier Burstable \
+        --storage-size 32 \
+        --version 16 \
+        --public-access None
+fi
 
 # Create database
 print_info "Creating database: lost-and-found"
