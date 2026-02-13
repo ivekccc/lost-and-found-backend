@@ -137,7 +137,14 @@ spring.flyway.enabled=false
 
 | Method | Endpoint | Opis | Response |
 |--------|----------|------|----------|
+| GET | `/reports` | Lista svih aktivnih reporta | `List<ReportListDTO>` |
 | GET | `/reports/{id}` | Detalji reporta | `ReportDetailsDTO` |
+
+### Report Category Endpoints
+
+| Method | Endpoint | Opis | Response |
+|--------|----------|------|----------|
+| GET | `/report-categories` | Lista aktivnih kategorija | `List<ReportCategoryDTO>` |
 
 ## Enum definicije za NSwag
 
