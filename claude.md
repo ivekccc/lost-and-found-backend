@@ -139,6 +139,7 @@ spring.flyway.enabled=false
 |--------|----------|------|----------|
 | GET | `/reports` | Lista svih aktivnih reporta | `List<ReportListDTO>` |
 | GET | `/reports/{id}` | Detalji reporta | `ReportDetailsDTO` |
+| POST | `/reports` | Kreira novi report | `ReportDetailsDTO` (201 Created) |
 
 ### Report Category Endpoints
 
@@ -336,6 +337,7 @@ Greške se obrađuju globalno u `GlobalExceptionHandler` i vraćaju `ErrorRespon
 |-----------|-------------|
 | `EmailSendException` | 503 SERVICE_UNAVAILABLE |
 | `DataIntegrityViolationException` | 409 CONFLICT |
+| `ResourceNotFoundException` | 404 NOT_FOUND |
 
 ## JPA Repository pravila
 
@@ -352,3 +354,60 @@ void deleteByField(String value);
 
 - Uvek na service metodama koje rade više operacija
 - Garantuje **atomicity** - ako bilo šta baci exception, sve se ROLLBACK-uje
+
+## Kreiranje POST Endpoint-a (Clean Code)
+
+### Struktura
+
+1. **Request DTO** - sa validacijom (`@NotBlank`, `@NotNull`, `@Email`, `@Size`)
+2. **Service metoda** - `@Transactional`, prima DTO + userEmail
+3. **Controller** - `@Valid @RequestBody`, vraća `201 Created`
+
+### Dobijanje trenutnog korisnika
+
+Koristi `@AuthenticationPrincipal` u controlleru (NE u servisu):
+
+```java
+@PostMapping
+public ResponseEntity<MyDTO> create(
+        @Valid @RequestBody CreateRequestDTO request,
+        @AuthenticationPrincipal UserDetails userDetails) {  // Spring injektuje iz JWT-a
+
+    MyDTO created = myService.create(request, userDetails.getUsername());
+    // ...
+}
+```
+
+**Zašto u controlleru?**
+- Service ostaje čist (ne zavisi od SecurityContext)
+- Lakše testiranje (proslijediš string, ne mockaš SecurityContext)
+- Service je reusable (scheduled tasks, message listeners, itd.)
+
+### Response za POST (201 Created + Location)
+
+```java
+@PostMapping
+public ResponseEntity<ReportDetailsDTO> createReport(...) {
+    ReportDetailsDTO created = reportService.createReport(request, userDetails.getUsername());
+
+    URI location = URI.create("/reports/" + created.getId());
+    return ResponseEntity.created(location).body(created);
+}
+```
+
+**Rezultat:**
+```
+HTTP/1.1 201 Created
+Location: /reports/6
+Content-Type: application/json
+
+{ "id": 6, "title": "...", ... }
+```
+
+### Checklist za novi POST endpoint
+
+- [ ] `CreateXxxRequestDTO` sa validacijom
+- [ ] `ResourceNotFoundException` ako treba
+- [ ] Handler u `GlobalExceptionHandler`
+- [ ] Service metoda sa `@Transactional`
+- [ ] Controller sa `@Valid`, `@AuthenticationPrincipal`, `ResponseEntity.created()`

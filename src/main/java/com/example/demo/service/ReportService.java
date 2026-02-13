@@ -1,12 +1,19 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.CreateReportRequestDto;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
+import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.Report;
+import com.example.demo.model.ReportCategory;
 import com.example.demo.model.ReportStatus;
+import com.example.demo.model.User;
+import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportRepository;
+import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +23,30 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReportService {
     private final ReportRepository reportRepository;
+    private final ReportCategoryRepository reportCategoryRepository;
+    private final UserRepository userRepository;
+
+    @Transactional
+    public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto,String userEmail) {
+        User user=userRepository.findByEmail(userEmail).orElseThrow(()->new ResourceNotFoundException("User not found"));
+        ReportCategory reportCategory=reportCategoryRepository.findById(createReportRequestDto.getCategoryId()).orElseThrow(()->new ResourceNotFoundException("Category not found"));
+
+        Report report = new Report();
+        report.setTitle(createReportRequestDto.getTitle());
+        report.setDescription(createReportRequestDto.getDescription());
+        report.setType(createReportRequestDto.getType());
+        report.setCategory(reportCategory);
+        report.setLocation(createReportRequestDto.getLocation());
+        report.setContactEmail(createReportRequestDto.getContactEmail());
+        report.setContactPhone(createReportRequestDto.getContactPhone());
+        report.setUser(user);
+        report.setStatus(ReportStatus.ACTIVE);
+
+        Report saved = reportRepository.save(report);
+        return toDetailsDTO(saved);
+    }
+
+
 
     public List<ReportListDTO> getAllReports() {
         return reportRepository.findAll().stream()
