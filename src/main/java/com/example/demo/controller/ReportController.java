@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.CreateReportRequestDto;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
+import com.example.demo.model.ReportType;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -28,14 +29,14 @@ public class ReportController {
     @ApiResponse(responseCode = "201", description = "Report created successfully")
     public ResponseEntity<ReportDetailsDTO> createReport(@Valid @RequestBody CreateReportRequestDto createReportRequestDto, @AuthenticationPrincipal UserDetails userDetails) {
 
-        ReportDetailsDTO created=reportService.createReport(createReportRequestDto,userDetails.getUsername());
+        ReportDetailsDTO created = reportService.createReport(createReportRequestDto, userDetails.getUsername());
         return ResponseEntity.ok(created);
     }
 
     @GetMapping
     @Operation(summary = "Get all reports", description = "Returns a list of all active reports")
-    public ResponseEntity<List<ReportListDTO>> getAllReports() {
-        List<ReportListDTO> reports = reportService.getAllReports();
+    public ResponseEntity<List<ReportListDTO>> getReports(@RequestParam(required = false) ReportType type) {
+        List<ReportListDTO> reports = reportService.getReports(type);
         return ResponseEntity.ok(reports);
     }
 

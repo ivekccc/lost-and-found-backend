@@ -4,10 +4,7 @@ import com.example.demo.dto.CreateReportRequestDto;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.exception.ResourceNotFoundException;
-import com.example.demo.model.Report;
-import com.example.demo.model.ReportCategory;
-import com.example.demo.model.ReportStatus;
-import com.example.demo.model.User;
+import com.example.demo.model.*;
 import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.UserRepository;
@@ -27,9 +24,9 @@ public class ReportService {
     private final UserRepository userRepository;
 
     @Transactional
-    public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto,String userEmail) {
-        User user=userRepository.findByEmail(userEmail).orElseThrow(()->new ResourceNotFoundException("User not found"));
-        ReportCategory reportCategory=reportCategoryRepository.findById(createReportRequestDto.getCategoryId()).orElseThrow(()->new ResourceNotFoundException("Category not found"));
+    public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
+        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        ReportCategory reportCategory = reportCategoryRepository.findById(createReportRequestDto.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
         Report report = new Report();
         report.setTitle(createReportRequestDto.getTitle());
@@ -48,9 +45,16 @@ public class ReportService {
 
 
 
-    public List<ReportListDTO> getAllReports() {
-        return reportRepository.findAll().stream()
-                .filter(report -> report.getStatus() != ReportStatus.DELETED)
+    public List<ReportListDTO> getReports(ReportType type) {
+        List<Report> reports;
+
+        if (type != null) {
+            reports = reportRepository.findByTypeAndStatusNot(type, ReportStatus.DELETED);
+        } else {
+            reports = reportRepository.findByStatusNot(ReportStatus.DELETED);
+        }
+
+        return reports.stream()
                 .map(this::toListDTO)
                 .collect(Collectors.toList());
     }
