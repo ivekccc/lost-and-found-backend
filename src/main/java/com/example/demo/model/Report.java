@@ -36,21 +36,23 @@ public class Report {
     @Column(length = 500)
     private String location;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(length = 255)
+    @Column(name = "contact_email", length = 255)
     private String contactEmail;
 
-    @Column(length = 50)
+    @Column(name = "contact_phone", length = 50)
     private String contactPhone;
 
     @PrePersist

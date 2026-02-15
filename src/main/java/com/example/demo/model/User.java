@@ -18,7 +18,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "username", unique = true, nullable = false, length = 50)
     private String username;
 
     @Column(nullable = false)
@@ -28,6 +28,6 @@ public class User {
     @Column(nullable = false)
     private UserStatus status;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 }

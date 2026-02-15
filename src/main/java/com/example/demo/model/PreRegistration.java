@@ -17,7 +17,7 @@ public class PreRegistration {
     @Column(nullable = false,unique = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true, length = 255)
     private String username;
 
     @Column(name = "password_hash", nullable = false)

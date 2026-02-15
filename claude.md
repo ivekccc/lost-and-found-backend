@@ -12,67 +12,89 @@ Spring Boot 4.0.1 REST API aplikacija za Lost and Found platformu. Koristi Java 
 - **Java verzija**: 21
 - **Baza**: PostgreSQL
 - **Migracije**: Flyway
-- **Autentifikacija**: JWT
+- **Autentifikacija**: JWT (access + refresh tokeni)
 - **Dokumentacija**: Swagger/OpenAPI (springdoc)
 - **Build tool**: Maven
+- **Email**: Thymeleaf templates + JavaMailSender
 
 ## Struktura projekta
 
 ```
 src/main/java/com/example/demo/
 ├── config/
-│   ├── SecurityConfig.java
-│   ├── SwaggerConfig.java
-│   └── FlywayConfig.java
+│   ├── SecurityConfig.java          # Spring Security + JWT
+│   ├── SwaggerConfig.java           # OpenAPI dokumentacija
+│   └── FlywayConfig.java            # Database migracije
 ├── controller/
-│   ├── AuthController.java
-│   ├── HelloController.java
-│   └── ReportController.java
+│   ├── AuthController.java          # Auth endpoints
+│   ├── ReportController.java        # Report CRUD
+│   ├── ReportCategoryController.java
+│   └── HelloController.java
 ├── dto/
 │   ├── AuthRequestDTO.java
 │   ├── AuthResponseDTO.java
 │   ├── RegisterRequestDTO.java
+│   ├── VerifyRequestDTO.java
 │   ├── RefreshTokenRequestDTO.java
 │   ├── RefreshTokenResponseDTO.java
-│   ├── ErrorResponseDTO.java
+│   ├── CreateReportRequestDto.java
 │   ├── ReportListDTO.java
-│   └── ReportDetailsDTO.java
+│   ├── ReportDetailsDTO.java
+│   ├── ReportCategoryDto.java
+│   └── ErrorResponseDTO.java
 ├── exception/
 │   ├── GlobalExceptionHandler.java
-│   └── UserAlreadyExistsException.java
+│   ├── UserAlreadyExistsException.java
+│   ├── InvalidVerificationException.java
+│   ├── InvalidTokenException.java
+│   ├── ResourceNotFoundException.java
+│   └── EmailSendException.java
 ├── model/
 │   ├── User.java
 │   ├── UserStatus.java
 │   ├── Report.java
 │   ├── ReportType.java
 │   ├── ReportStatus.java
-│   └── ReportCategory.java
+│   ├── ReportCategory.java
+│   └── PreRegistration.java
 ├── repository/
 │   ├── UserRepository.java
 │   ├── ReportRepository.java
-│   └── ReportCategoryRepository.java
+│   ├── ReportCategoryRepository.java
+│   └── PreRegistrationRepository.java
 ├── service/
 │   ├── AuthService.java
 │   ├── ReportService.java
+│   ├── ReportCategoryService.java
+│   ├── EmailService.java
 │   ├── JwtUtil.java
 │   ├── JwtAuthFilter.java
-│   └── MyUserDetailsService.java
+│   ├── MyUserDetailsService.java
+│   └── ScheduleTasks.java           # Cleanup expired pre-registrations
+├── util/
+│   └── VerificationCodeGenerator.java
 └── LostAndFountBackendApplication.java
 
 src/main/resources/
 ├── application.properties
+├── templates/email/
+│   └── verification.html            # Email template
 └── db/
     ├── migration/
     │   ├── V1__create_users_table.sql
     │   ├── V2__add_username_to_users.sql
-    │   └── V3__create_report_tables.sql
+    │   ├── V3__create_report_categories_table.sql
+    │   ├── V4__create_reports_table.sql
+    │   └── V5__create_pre_registrations_table.sql
     └── seed/
-        ├── R__seed_users.sql
-        ├── R__seed_report_categories.sql
-        └── R__seed_reports.sql
+        ├── R__1_seed_users.sql
+        ├── R__2_seed_report_categories.sql
+        └── R__3_seed_reports.sql
 ```
 
-## Flyway
+---
+
+## Flyway Migracije
 
 ### Struktura foldera
 
@@ -81,6 +103,20 @@ src/main/resources/
 | `db/migration/` | `V__` | Šema (CREATE, ALTER) | Jednom |
 | `db/seed/` | `R__` | Seed podaci | Kad se fajl promeni |
 
+### Trenutne migracije
+
+| Verzija | Fajl | Sadržaj |
+|---------|------|---------|
+| V1 | `V1__create_users_table.sql` | `users` tabela |
+| V2 | `V2__add_username_to_users.sql` | Dodaje `username` kolonu |
+| V3 | `V3__create_report_categories_table.sql` | `report_categories` tabela |
+| V4 | `V4__create_reports_table.sql` | `reports` tabela + indexi |
+| V5 | `V5__create_pre_registrations_table.sql` | `pre_registrations` tabela |
+
+### Pravilo: Jedna tabela = jedna migracija
+
+Svaka tabela treba biti u zasebnoj migraciji. Ako tabela B ima FK na tabelu A, migracija za B mora imati veći broj od migracije za A.
+
 ### Dodavanje migracije
 
 1. Kreiraj `V{broj}__{opis}.sql` u `db/migration/`
@@ -88,7 +124,7 @@ src/main/resources/
 
 ### Dodavanje seed podataka
 
-1. Kreiraj ili edituj `R__{opis}.sql` u `db/seed/`
+1. Kreiraj ili edituj `R__{broj}_{opis}.sql` u `db/seed/`
 2. Koristi DELETE + INSERT pattern
 3. Restartuj aplikaciju
 
@@ -106,18 +142,147 @@ INSERT INTO users (email, username, password, status, created_at) VALUES
 
 Za generisanje hasha: https://bcrypt-generator.com/
 
-### Reset migracije
+### Reset baze (dev)
 
 ```sql
-DELETE FROM flyway_schema_history WHERE version = 'X';
+-- Opcija A: Drop i ponovo kreiraj
+DROP DATABASE "lost-and-found";
+CREATE DATABASE "lost-and-found";
+
+-- Opcija B: Reset flyway history
+DROP TABLE IF EXISTS reports;
+DROP TABLE IF EXISTS report_categories;
+DROP TABLE IF EXISTS pre_registrations;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS flyway_schema_history;
 ```
+
+---
+
+## JPA Model Konvencije
+
+### Eksplicitno mapiranje kolona (OBAVEZNO)
+
+Svako polje MORA imati eksplicitan `@Column` sa `name` atributom za snake_case mapiranje:
+
+```java
+@Column(name = "created_at", nullable = false)
+private LocalDateTime createdAt;
+
+@Column(name = "contact_email", length = 255)
+private String contactEmail;
+
+@Column(name = "is_active", nullable = false)
+private Boolean isActive = true;
+```
+
+### Naming strategija
+
+U `application.properties`:
+```properties
+spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+```
+
+### Foreign Key relacije
+
+```java
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "category_id", nullable = false)
+private ReportCategory category;
+
+@ManyToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "user_id", nullable = false)
+private User user;
+```
+
+---
+
+## DTO Validacija
+
+### Request DTO - koristi Jakarta validaciju
+
+```java
+@Data
+public class CreateReportRequestDto {
+    @NotBlank(message = "Title is required")
+    @Size(max = 255, message = "Title must be less than 255 characters")
+    private String title;
+
+    @NotNull(message = "Type is required")
+    private ReportType type;
+
+    @NotNull(message = "Category is required")
+    private Long categoryId;
+
+    // Opciona polja - bez @NotNull
+    @Size(max = 2000)
+    private String description;
+}
+```
+
+### Response DTO - koristi @NotNull/@NotBlank za required polja
+
+**VAŽNO:** Response DTO-ovi MORAJU imati `@NotNull`/`@NotBlank` anotacije na required poljima. Ovo omogućava da OpenAPI/Swagger pravilno generiše TypeScript tipove sa required poljima (bez `?`).
+
+```java
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ReportListDTO {
+
+    @NotNull
+    private Long id;
+
+    @NotBlank
+    private String title;
+
+    @NotNull
+    private ReportType type;
+
+    @NotBlank
+    private String categoryName;
+
+    @NotNull
+    private ReportStatus status;
+
+    // Opciono polje - bez anotacije
+    private String location;
+
+    @NotNull
+    private LocalDateTime createdAt;
+}
+```
+
+### Rezultat u TypeScript
+
+```typescript
+// Sa @NotNull/@NotBlank
+export interface ReportListDTO {
+  id: number;           // required
+  title: string;        // required
+  type: ReportType;     // required
+  location?: string;    // optional
+  createdAt: Date;      // required
+}
+
+// Bez anotacija (POGREŠNO)
+export interface ReportListDTO {
+  id?: number;          // sve optional
+  title?: string;
+  // ...
+}
+```
+
+---
 
 ## Environment varijable
 
 ```properties
-JWT_SECRET=your-secret-key
+JWT_SECRET=your-secret-key-min-32-chars
 DB_USERNAME=postgres
 DB_PASSWORD=admin
+MAIL_USERNAME=your-gmail@gmail.com
+MAIL_PASSWORD=your-gmail-app-password
 ```
 
 ## Baza podataka
@@ -128,134 +293,52 @@ spring.jpa.hibernate.ddl-auto=none
 spring.flyway.enabled=false
 ```
 
-## API Dokumentacija
+**VAŽNO:** `ddl-auto=none` - Hibernate NE generiše šemu. Samo Flyway upravlja bazom.
 
-- **Swagger UI**: http://localhost:8082/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:8082/v3/api-docs
+---
+
+## API Endpoints
+
+### Auth Endpoints
+
+| Method | Endpoint | Summary | Response |
+|--------|----------|---------|----------|
+| POST | `/auth/register` | Register new user | 204 No Content |
+| POST | `/auth/verify` | Verify email | `AuthResponseDTO` |
+| POST | `/auth/login` | Login | `AuthResponseDTO` |
+| POST | `/auth/refresh` | Refresh token | `RefreshTokenResponseDTO` |
 
 ### Report Endpoints
 
 | Method | Endpoint | Opis | Response |
 |--------|----------|------|----------|
-| GET | `/reports` | Lista svih aktivnih reporta | `List<ReportListDTO>` |
+| GET | `/reports` | Lista aktivnih reporta | `List<ReportListDTO>` |
+| GET | `/reports?type=LOST` | Filtrirano po tipu | `List<ReportListDTO>` |
 | GET | `/reports/{id}` | Detalji reporta | `ReportDetailsDTO` |
-| POST | `/reports` | Kreira novi report | `ReportDetailsDTO` (201 Created) |
+| POST | `/reports` | Kreira novi report | `ReportDetailsDTO` (201) |
 
 ### Report Category Endpoints
 
 | Method | Endpoint | Opis | Response |
 |--------|----------|------|----------|
-| GET | `/report-categories` | Lista aktivnih kategorija | `List<ReportCategoryDTO>` |
+| GET | `/report-categories` | Lista aktivnih kategorija | `List<ReportCategoryDto>` |
 
-## Enum definicije za NSwag
+---
 
-Da bi NSwag generisao zajedničke enum tipove (umjesto inline duplicate), enum klase moraju imati `@Schema(enumAsRef = true)`:
+## Swagger/OpenAPI
 
-```java
-@Schema(name = "ReportType", enumAsRef = true)
-public enum ReportType {
-    LOST,
-    FOUND
-}
-```
+- **Swagger UI**: http://localhost:8082/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:8082/v3/api-docs
 
-Ovo osigurava da NSwag generiše:
-```typescript
-export enum ReportType { LOST = "LOST", FOUND = "FOUND" }
-```
-
-Umjesto:
-```typescript
-export enum ReportDetailsDTOType { LOST = "LOST", FOUND = "FOUND" }
-```
-
-## Seed korisnici
-
-| Email | Username | Password |
-|-------|----------|----------|
-| user1@lostandfound.com | user1 | password123 |
-| user2@lostandfound.com | user2 | password123 |
-
-## Seed kategorije prijava
-
-| Kategorija |
-|------------|
-| Electronics |
-| Documents |
-| Keys |
-| Wallet |
-| Jewelry |
-| Clothing |
-| Bags |
-| Pets |
-| Other |
-
-## Seed reports
-
-| Title | Type | Category | Status | User |
-|-------|------|----------|--------|------|
-| Lost iPhone 15 Pro | LOST | Electronics | ACTIVE | user1 |
-| Found car keys near park | FOUND | Keys | ACTIVE | user2 |
-| Lost brown leather wallet | LOST | Wallet | ACTIVE | user1 |
-| Found golden ring | FOUND | Jewelry | ACTIVE | user2 |
-| Lost black backpack | LOST | Bags | RESOLVED | user1 |
-
-## Report entiteti
-
-### ReportType (enum)
-- `LOST` - Izgubljen predmet
-- `FOUND` - Pronađen predmet
-
-### ReportStatus (enum)
-- `ACTIVE` - Aktivna prijava
-- `RESOLVED` - Riješeno (predmet vraćen)
-- `EXPIRED` - Istekla prijava
-- `FLAGGED` - Označena za pregled
-- `DELETED` - Obrisana (soft delete)
-
-## Swagger/OpenAPI dokumentacija endpointa
-
-### Potrebna konfiguracija (application.properties)
+### Konfiguracija
 
 ```properties
 springdoc.api-docs.version=openapi_3_0
 ```
 
-**VAŽNO:** Koristimo OpenAPI 3.0 umesto 3.1 jer 3.1 ima bug sa `@ArraySchema` - ne generiše `"type": "array"`.
+**VAŽNO:** Koristimo OpenAPI 3.0 (ne 3.1) jer 3.1 ima bug sa `@ArraySchema`.
 
 ### Dokumentovanje endpointa
-
-Svaki endpoint MORA imati `@Operation` anotaciju sa `summary` i `description`:
-
-```java
-@PostMapping("/login")
-@Operation(summary = "Login", description = "Authenticates user and returns auth tokens")
-public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody AuthRequestDTO req) {
-    // ...
-}
-```
-
-### Endpoint koji vraća 204 No Content
-
-Kada endpoint ne vraća body (npr. register koji samo šalje email):
-
-```java
-@PostMapping("/register")
-@Operation(summary = "Register new user", description = "Sends verification code to email")
-@ApiResponse(responseCode = "204", description = "Verification code sent successfully")
-public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequestDTO req) {
-    authService.register(req);
-    return ResponseEntity.noContent().build();
-}
-```
-
-- Koristi `ResponseEntity<Void>` kao return type
-- Dodaj `@ApiResponse(responseCode = "204", ...)` da Swagger prikaže 204 umesto 200
-- Service metoda vraća `void`
-
-### Endpoint koji vraća listu (Array)
-
-Za pravilno prikazivanje tipa u Swagger-u (npr. `array<ReportListDTO>` umesto `array<object>`):
 
 ```java
 @GetMapping
@@ -275,139 +358,152 @@ public ResponseEntity<List<ReportListDTO>> getAllReports() {
 }
 ```
 
-**Potrebni importi:**
-```java
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-```
-
-### DTO klase
-
-DTO klase mogu imati `@Schema` anotaciju za bolji opis u Swagger-u:
+### Enum definicije za NSwag
 
 ```java
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Schema(name = "ReportListDTO", description = "Report summary for list view")
-public class ReportListDTO {
-    private Long id;
-    private String title;
-    // ...
+@Schema(name = "ReportType", enumAsRef = true)
+public enum ReportType {
+    LOST,
+    FOUND
 }
 ```
 
-### Error handling
+---
 
-Greške se obrađuju globalno u `GlobalExceptionHandler` i vraćaju `ErrorResponseDTO`:
+## Auth Flow
+
+### Registration Flow
+
+1. POST `/auth/register` → Kreira `PreRegistration`, šalje email sa kodom
+2. POST `/auth/verify` → Validira kod, kreira `User`, briše `PreRegistration`, vraća tokene
+
+### JWT Tokeni
+
+```properties
+jwt.access-token.expiration-ms=36000000      # 10 sati
+jwt.refresh-token.expiration-ms=604800000    # 7 dana
+```
+
+### Scheduled Cleanup
+
+`ScheduleTasks.java` briše expired `PreRegistration` zapise svakog sata.
+
+---
+
+## Error Handling
 
 | Exception | HTTP Status | Opis |
 |-----------|-------------|------|
 | `UserAlreadyExistsException` | 409 CONFLICT | Email već postoji |
 | `InvalidVerificationException` | 400 BAD_REQUEST | Pogrešan/istekao kod |
-| `MethodArgumentNotValidException` | 400 BAD_REQUEST | Validaciona greška |
+| `InvalidTokenException` | 401 UNAUTHORIZED | Neispravan refresh token |
+| `ResourceNotFoundException` | 404 NOT_FOUND | Resurs ne postoji |
+| `EmailSendException` | 503 SERVICE_UNAVAILABLE | Greška pri slanju emaila |
 | `BadCredentialsException` | 401 UNAUTHORIZED | Pogrešan email/password |
-| `Exception` | 500 INTERNAL_SERVER_ERROR | Neočekivana greška |
+| `MethodArgumentNotValidException` | 400 BAD_REQUEST | Validaciona greška |
 
-## Auth Endpoints
+---
 
-| Method | Endpoint | Summary | Response |
-|--------|----------|---------|----------|
-| POST | `/auth/register` | Register new user | 204 No Content |
-| POST | `/auth/verify` | Verify email | `AuthResponseDTO` |
-| POST | `/auth/login` | Login | `AuthResponseDTO` |
-| POST | `/auth/refresh` | Refresh token | `RefreshTokenResponseDTO` |
+## Seed podaci
 
-## Email Templates
+### Korisnici
 
-- Koristimo **Thymeleaf** za HTML email template-e
-- Template-i se čuvaju u `src/main/resources/templates/email/`
-- Nakon promene template fajla: `mvn clean compile` (keširanje u target/)
+| Email | Username | Password |
+|-------|----------|----------|
+| user1@lostandfound.com | user1 | password123 |
+| user2@lostandfound.com | user2 | password123 |
 
-## Exception Handling
+### Kategorije
 
-- Svaka vrsta greške ima **custom exception** + handler u `GlobalExceptionHandler`
-- NE vraćaj generičke 500 greške korisniku - uvek smislena poruka
+Electronics, Documents, Keys, Wallet, Jewelry, Clothing, Bags, Pets, Other
 
-| Exception | HTTP Status |
-|-----------|-------------|
-| `EmailSendException` | 503 SERVICE_UNAVAILABLE |
-| `DataIntegrityViolationException` | 409 CONFLICT |
-| `ResourceNotFoundException` | 404 NOT_FOUND |
+### Reports
 
-## JPA Repository pravila
+| Title | Type | Category | Status |
+|-------|------|----------|--------|
+| Lost iPhone 15 Pro | LOST | Electronics | ACTIVE |
+| Found car keys near park | FOUND | Keys | ACTIVE |
+| Lost brown leather wallet | LOST | Wallet | ACTIVE |
+| Found golden ring | FOUND | Jewelry | ACTIVE |
+| Lost black backpack | LOST | Bags | RESOLVED |
 
-- **NE koristi** derived delete metode (`deleteByEmail`) - rade SELECT + DELETE
-- **KORISTI** `@Query` za direktan DELETE:
+---
+
+## Enumi
+
+### ReportType
+- `LOST` - Izgubljen predmet
+- `FOUND` - Pronađen predmet
+
+### ReportStatus
+- `ACTIVE` - Aktivna prijava
+- `RESOLVED` - Riješeno
+- `EXPIRED` - Istekla
+- `FLAGGED` - Označena za pregled
+- `DELETED` - Soft delete
+
+### UserStatus
+- `ACTIVE` - Aktivan korisnik
+- `BLOCKED` - Blokiran
+- `PARTIALLY_BLOCKED` - Djelimično blokiran
+
+---
+
+## Best Practices
+
+### JPA Repository
 
 ```java
+// NE koristi derived delete - radi SELECT + DELETE
+void deleteByEmail(String email);  // ❌
+
+// KORISTI @Query za direktan DELETE
 @Modifying
-@Query("DELETE FROM Entity e WHERE e.field = :value")
-void deleteByField(String value);
+@Query("DELETE FROM PreRegistration p WHERE p.email = :email")
+void deleteByEmail(@Param("email") String email);  // ✅
 ```
 
-## @Transactional
+### @Transactional
 
-- Uvek na service metodama koje rade više operacija
-- Garantuje **atomicity** - ako bilo šta baci exception, sve se ROLLBACK-uje
+Uvek na service metodama koje rade više operacija:
 
-## Kreiranje POST Endpoint-a (Clean Code)
-
-### Struktura
-
-1. **Request DTO** - sa validacijom (`@NotBlank`, `@NotNull`, `@Email`, `@Size`)
-2. **Service metoda** - `@Transactional`, prima DTO + userEmail
-3. **Controller** - `@Valid @RequestBody`, vraća `201 Created`
+```java
+@Transactional
+public void register(RegisterRequestDTO request) {
+    // ...multiple operations...
+}
+```
 
 ### Dobijanje trenutnog korisnika
 
-Koristi `@AuthenticationPrincipal` u controlleru (NE u servisu):
+U controlleru (NE u servisu):
 
 ```java
 @PostMapping
-public ResponseEntity<MyDTO> create(
-        @Valid @RequestBody CreateRequestDTO request,
-        @AuthenticationPrincipal UserDetails userDetails) {  // Spring injektuje iz JWT-a
+public ResponseEntity<ReportDetailsDTO> create(
+        @Valid @RequestBody CreateReportRequestDto request,
+        @AuthenticationPrincipal UserDetails userDetails) {
 
-    MyDTO created = myService.create(request, userDetails.getUsername());
-    // ...
+    return reportService.create(request, userDetails.getUsername());
 }
 ```
 
-**Zašto u controlleru?**
-- Service ostaje čist (ne zavisi od SecurityContext)
-- Lakše testiranje (proslijediš string, ne mockaš SecurityContext)
-- Service je reusable (scheduled tasks, message listeners, itd.)
-
-### Response za POST (201 Created + Location)
+### POST Response (201 Created)
 
 ```java
-@PostMapping
-public ResponseEntity<ReportDetailsDTO> createReport(...) {
-    ReportDetailsDTO created = reportService.createReport(request, userDetails.getUsername());
-
-    URI location = URI.create("/reports/" + created.getId());
-    return ResponseEntity.created(location).body(created);
-}
+URI location = URI.create("/reports/" + created.getId());
+return ResponseEntity.created(location).body(created);
 ```
 
-**Rezultat:**
-```
-HTTP/1.1 201 Created
-Location: /reports/6
-Content-Type: application/json
+---
 
-{ "id": 6, "title": "...", ... }
-```
+## Checklist za novi endpoint
 
-### Checklist za novi POST endpoint
-
-- [ ] `CreateXxxRequestDTO` sa validacijom
-- [ ] `ResourceNotFoundException` ako treba
+- [ ] Request DTO sa validacijom (`@NotBlank`, `@NotNull`, `@Size`)
+- [ ] Response DTO sa `@NotNull`/`@NotBlank` za required polja
+- [ ] Custom exception ako treba
 - [ ] Handler u `GlobalExceptionHandler`
 - [ ] Service metoda sa `@Transactional`
-- [ ] Controller sa `@Valid`, `@AuthenticationPrincipal`, `ResponseEntity.created()`
+- [ ] Controller sa `@Valid`, `@AuthenticationPrincipal`
+- [ ] `@Operation` i `@ApiResponse` za Swagger
+- [ ] Migracija ako treba nova tabela/kolona
