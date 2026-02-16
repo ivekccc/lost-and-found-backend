@@ -33,7 +33,6 @@ public class ReportService {
         report.setDescription(createReportRequestDto.getDescription());
         report.setType(createReportRequestDto.getType());
         report.setCategory(reportCategory);
-        report.setLocation(createReportRequestDto.getLocation());
         report.setContactEmail(createReportRequestDto.getContactEmail());
         report.setContactPhone(createReportRequestDto.getContactPhone());
         report.setUser(user);
@@ -72,7 +71,6 @@ public class ReportService {
                 report.getType(),
                 report.getCategory().getName(),
                 report.getStatus(),
-                report.getLocation(),
                 report.getCreatedAt()
         );
     }
@@ -86,7 +84,6 @@ public class ReportService {
                 report.getCategory().getId(),
                 report.getCategory().getName(),
                 report.getStatus(),
-                report.getLocation(),
                 report.getCreatedAt(),
                 report.getExpiresAt(),
                 report.getUser().getId(),

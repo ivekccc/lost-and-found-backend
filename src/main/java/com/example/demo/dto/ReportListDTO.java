@@ -30,7 +30,7 @@ public class ReportListDTO {
     @NotNull
     private ReportStatus status;
 
-    private String location;
+
 
     @NotNull
     private LocalDateTime createdAt;

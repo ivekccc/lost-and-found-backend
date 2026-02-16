@@ -35,7 +35,6 @@ public class ReportDetailsDTO {
     @NotNull
     private ReportStatus status;
 
-    private String location;
 
     @NotNull
     private LocalDateTime createdAt;

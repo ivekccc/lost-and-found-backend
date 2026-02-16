@@ -33,8 +33,9 @@ public class Report {
     @Column(nullable = false, length = 20)
     private ReportStatus status = ReportStatus.ACTIVE;
 
-    @Column(length = 500)
-    private String location;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location location;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

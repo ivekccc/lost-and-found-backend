@@ -16,6 +16,7 @@ Spring Boot 4.0.1 REST API aplikacija za Lost and Found platformu. Koristi Java 
 - **Dokumentacija**: Swagger/OpenAPI (springdoc)
 - **Build tool**: Maven
 - **Email**: Thymeleaf templates + JavaMailSender
+- **Geocoding**: LocationIQ API (OpenStreetMap)
 
 ## Struktura projekta
 
@@ -24,11 +25,13 @@ src/main/java/com/example/demo/
 ├── config/
 │   ├── SecurityConfig.java          # Spring Security + JWT
 │   ├── SwaggerConfig.java           # OpenAPI dokumentacija
-│   └── FlywayConfig.java            # Database migracije
+│   ├── FlywayConfig.java            # Database migracije
+│   └── AppConfig.java               # RestTemplate bean
 ├── controller/
 │   ├── AuthController.java          # Auth endpoints
 │   ├── ReportController.java        # Report CRUD
 │   ├── ReportCategoryController.java
+│   ├── LocationController.java      # Location autocomplete
 │   └── HelloController.java
 ├── dto/
 │   ├── AuthRequestDTO.java
@@ -41,7 +44,9 @@ src/main/java/com/example/demo/
 │   ├── ReportListDTO.java
 │   ├── ReportDetailsDTO.java
 │   ├── ReportCategoryDto.java
-│   └── ErrorResponseDTO.java
+│   ├── ErrorResponseDTO.java
+│   └── location/
+│       └── AutocompleteSuggestionDTO.java
 ├── exception/
 │   ├── GlobalExceptionHandler.java
 │   ├── UserAlreadyExistsException.java
@@ -67,6 +72,7 @@ src/main/java/com/example/demo/
 │   ├── ReportService.java
 │   ├── ReportCategoryService.java
 │   ├── EmailService.java
+│   ├── LocationService.java         # LocationIQ autocomplete
 │   ├── JwtUtil.java
 │   ├── JwtAuthFilter.java
 │   ├── MyUserDetailsService.java
@@ -283,6 +289,7 @@ DB_USERNAME=postgres
 DB_PASSWORD=admin
 MAIL_USERNAME=your-gmail@gmail.com
 MAIL_PASSWORD=your-gmail-app-password
+LOCATIONIQ_API_KEY=your-locationiq-api-key
 ```
 
 ## Baza podataka
@@ -294,6 +301,31 @@ spring.flyway.enabled=false
 ```
 
 **VAŽNO:** `ddl-auto=none` - Hibernate NE generiše šemu. Samo Flyway upravlja bazom.
+
+## RestTemplate Bean
+
+Za HTTP pozive ka eksternim API-jima (LocationIQ), koristi se `RestTemplate` definisan u `AppConfig.java`:
+
+```java
+@Configuration
+public class AppConfig {
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+Inject-uj ga sa `@RequiredArgsConstructor`:
+
+```java
+@Service
+@RequiredArgsConstructor
+public class LocationService {
+    private final RestTemplate restTemplate;
+    // ...
+}
+```
 
 ---
 
@@ -322,6 +354,64 @@ spring.flyway.enabled=false
 | Method | Endpoint | Opis | Response |
 |--------|----------|------|----------|
 | GET | `/report-categories` | Lista aktivnih kategorija | `List<ReportCategoryDto>` |
+
+### Location Endpoints
+
+| Method | Endpoint | Opis | Response |
+|--------|----------|------|----------|
+| GET | `/locations/autocomplete?query=...` | Autocomplete adresa | `List<AutocompleteSuggestionDTO>` |
+
+---
+
+## LocationIQ Integracija
+
+### Konfiguracija
+
+```properties
+# application.properties
+locationiq.api-key=${LOCATIONIQ_API_KEY}
+locationiq.base-url=https://api.locationiq.com/v1
+locationiq.default-country=rs
+```
+
+### Kako radi
+
+1. **LocationService** koristi `RestTemplate` za poziv LocationIQ API
+2. **Autocomplete endpoint** vraća sugestije adresa dok korisnik kuca
+3. Rezultati su fokusirani na Beograd (viewbox + bounded parametri)
+
+### LocationIQ API parametri
+
+| Parametar | Vrednost | Opis |
+|-----------|----------|------|
+| `countrycodes` | `rs` | Samo Srbija |
+| `viewbox` | `20.22,44.93,20.65,44.68` | Beograd bounding box |
+| `bounded` | `1` | Ograniči na viewbox |
+| `limit` | `5` | Max broj rezultata |
+
+### Primer Response-a
+
+```json
+[
+  {
+    "placeId": "331350046067",
+    "displayName": "Knez Mihailova, Stari Grad, Beograd, Serbia",
+    "displayPlace": "Knez Mihailova",
+    "displayAddress": "Stari Grad, Beograd, Serbia",
+    "latitude": 44.8176,
+    "longitude": 20.4569
+  }
+]
+```
+
+### Rate Limiting
+
+LocationIQ besplatni plan: **5,000 req/dan**, **2 req/sec**
+
+### Dokumentacija
+
+- [LocationIQ Docs](https://docs.locationiq.com/)
+- Specifikacija: `LOCATION_SYSTEM_SPEC.md` u root folderu
 
 ---
 
