@@ -2,6 +2,7 @@ package com.example.demo.dto;
 
 import com.example.demo.model.ReportType;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -28,8 +29,8 @@ public class CreateReportRequestDto {
     @NotNull(message = "Category is required")
     private Long categoryId;
 
-    @Size(max = 500, message = "Location must be less than 500 characters")
-    private String location;
+    @Valid
+    private LocationRequestDTO location;
 
     @Email(message = "Invalid email format")
     @Size(max = 255)

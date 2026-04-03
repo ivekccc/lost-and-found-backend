@@ -1,10 +1,12 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.CreateReportRequestDto;
+import com.example.demo.dto.LocationRequestDTO;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
+import com.example.demo.repository.LocationRepository;
 import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.UserRepository;
@@ -22,6 +24,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final ReportCategoryRepository reportCategoryRepository;
     private final UserRepository userRepository;
+    private final LocationRepository locationRepository;
 
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
@@ -37,6 +40,11 @@ public class ReportService {
         report.setContactPhone(createReportRequestDto.getContactPhone());
         report.setUser(user);
         report.setStatus(ReportStatus.ACTIVE);
+
+        if (createReportRequestDto.getLocation() != null) {
+            Location location = findOrCreateLocation(createReportRequestDto.getLocation());
+            report.setLocation(location);
+        }
 
         Report saved = reportRepository.save(report);
         return toDetailsDTO(saved);
@@ -62,6 +70,24 @@ public class ReportService {
         return reportRepository.findById(id)
                 .filter(report -> report.getStatus() != ReportStatus.DELETED)
                 .map(this::toDetailsDTO);
+    }
+
+    private Location findOrCreateLocation(LocationRequestDTO dto) {
+        if (dto.getPlaceId() != null) {
+            Optional<Location> existing = locationRepository.findByOsmId(dto.getPlaceId());
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
+
+        Location location = Location.builder()
+                .latitude(dto.getLatitude())
+                .longitude(dto.getLongitude())
+                .formattedAddress(dto.getDisplayName())
+                .osmId(dto.getPlaceId())
+                .build();
+
+        return locationRepository.save(location);
     }
 
     private ReportListDTO toListDTO(Report report) {
