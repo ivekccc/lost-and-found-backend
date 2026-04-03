@@ -6,10 +6,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class AutoCompleteSuggestionDTO {
-    private String placeId;
+    private String osmId;
+    private String osmType;
     private String displayName;
     private String displayPlace;
     private String displayAddress;
-    private Double latitude;
-    private Double longitude;
 }

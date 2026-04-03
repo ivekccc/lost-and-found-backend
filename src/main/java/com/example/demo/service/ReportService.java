@@ -25,6 +25,7 @@ public class ReportService {
     private final ReportCategoryRepository reportCategoryRepository;
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
+    private final LocationService locationService;
 
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
@@ -73,20 +74,12 @@ public class ReportService {
     }
 
     private Location findOrCreateLocation(LocationRequestDTO dto) {
-        if (dto.getPlaceId() != null) {
-            Optional<Location> existing = locationRepository.findByOsmId(dto.getPlaceId());
-            if (existing.isPresent()) {
-                return existing.get();
-            }
+        Optional<Location> existing = locationRepository.findByOsmId(dto.getOsmId());
+        if (existing.isPresent()) {
+            return existing.get();
         }
 
-        Location location = Location.builder()
-                .latitude(dto.getLatitude())
-                .longitude(dto.getLongitude())
-                .formattedAddress(dto.getDisplayName())
-                .osmId(dto.getPlaceId())
-                .build();
-
+        Location location = locationService.lookupLocation(dto.getOsmId(), dto.getOsmType());
         return locationRepository.save(location);
     }
 
