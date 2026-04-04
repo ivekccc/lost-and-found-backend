@@ -1,9 +1,6 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.CreateReportRequestDto;
-import com.example.demo.dto.LocationRequestDTO;
-import com.example.demo.dto.ReportDetailsDTO;
-import com.example.demo.dto.ReportListDTO;
+import com.example.demo.dto.*;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
 import com.example.demo.repository.LocationRepository;
@@ -90,6 +87,7 @@ public class ReportService {
                 report.getType(),
                 report.getCategory().getName(),
                 report.getStatus(),
+                LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt()
         );
     }
@@ -103,6 +101,7 @@ public class ReportService {
                 report.getCategory().getId(),
                 report.getCategory().getName(),
                 report.getStatus(),
+                LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),
                 report.getExpiresAt(),
                 report.getUser().getId(),
