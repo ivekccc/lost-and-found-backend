@@ -50,6 +50,9 @@ public class AuthService {
         preReg.setEmail(req.getEmail());
         preReg.setUsername(req.getUsername());
         preReg.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        preReg.setFirstName(req.getFirstName());
+        preReg.setLastName(req.getLastName());
+        preReg.setPhoneNumber(req.getPhoneNumber());
         preReg.setVerificationCode(code);
         preReg.setExpiresAt(LocalDateTime.now().plusMinutes(codeExpiryMinutes));
 
@@ -73,6 +76,9 @@ public class AuthService {
         user.setEmail(preReg.getEmail());
         user.setUsername(preReg.getUsername());
         user.setPassword(preReg.getPasswordHash());
+        user.setFirstName(preReg.getFirstName());
+        user.setLastName(preReg.getLastName());
+        user.setPhoneNumber(preReg.getPhoneNumber());
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
         userRepository.save(user);
