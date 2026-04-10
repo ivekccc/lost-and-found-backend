@@ -45,9 +45,24 @@ public class ReportService {
         }
 
         Report saved = reportRepository.save(report);
+
+
+        //Da li je ovo clean code da se ovako prolazi kroz listu slika?
+        if (createReportRequestDto.getImages() != null) {
+            for (int i = 0; i < createReportRequestDto.getImages().size(); i++) {
+                ReportImageRequestDTO imgDto = createReportRequestDto.getImages().get(i);
+                ReportImage image = new ReportImage();
+                image.setReport(saved);
+                image.setImageUrl(imgDto.getImageUrl());
+                image.setPublicId(imgDto.getPublicId());
+                image.setDisplayOrder(i);
+                saved.getImages().add(image);
+            }
+            reportRepository.save(saved);
+        }
+
         return toDetailsDTO(saved);
     }
-
 
 
     public List<ReportListDTO> getReports(ReportType type) {
@@ -81,6 +96,10 @@ public class ReportService {
     }
 
     private ReportListDTO toListDTO(Report report) {
+        String thumbnailUrl = report.getImages().isEmpty()
+                ? null
+                : report.getImages().getFirst().getImageUrl();
+
         return new ReportListDTO(
                 report.getId(),
                 report.getTitle(),
@@ -88,11 +107,16 @@ public class ReportService {
                 report.getCategory().getName(),
                 report.getStatus(),
                 LocationDTO.fromEntity(report.getLocation()),
-                report.getCreatedAt()
+                report.getCreatedAt(),
+                thumbnailUrl
         );
     }
 
     private ReportDetailsDTO toDetailsDTO(Report report) {
+        List<ReportImageDTO> imageDtos = report.getImages().stream()
+                .map(img -> new ReportImageDTO(img.getId(), img.getImageUrl(), img.getDisplayOrder()))
+                .toList();
+
         return new ReportDetailsDTO(
                 report.getId(),
                 report.getTitle(),
@@ -106,7 +130,8 @@ public class ReportService {
                 report.getExpiresAt(),
                 report.getUser().getId(),
                 report.getContactEmail(),
-                report.getContactPhone()
+                report.getContactPhone(),
+                imageDtos
         );
     }
 }

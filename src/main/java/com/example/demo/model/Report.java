@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "reports")
@@ -55,6 +57,10 @@ public class Report {
 
     @Column(name = "contact_phone", length = 50)
     private String contactPhone;
+
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, mappedBy = "report", orphanRemoval = true)
+    @OrderBy("displayOrder ASC")
+    private List<ReportImage> images = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

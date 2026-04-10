@@ -11,6 +11,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -38,4 +40,8 @@ public class CreateReportRequestDto {
 
     @Size(max = 50, message = "Phone must be less than 50 characters")
     private String contactPhone;
+
+    @Valid
+    @Size(max = 5, message = "Maximum 5 images per report")
+    private List<ReportImageRequestDTO> images;
 }

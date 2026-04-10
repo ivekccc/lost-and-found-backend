@@ -35,4 +35,6 @@ public class ReportListDTO {
 
     @NotNull
     private LocalDateTime createdAt;
+
+    private String thumbnailUrl;
 }
