@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
+import com.example.demo.event.ReportCreatedEvent;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
 import com.example.demo.repository.LocationRepository;
@@ -8,6 +9,7 @@ import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class ReportService {
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
     private final LocationService locationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
@@ -47,7 +50,6 @@ public class ReportService {
         Report saved = reportRepository.save(report);
 
 
-        //Da li je ovo clean code da se ovako prolazi kroz listu slika?
         if (createReportRequestDto.getImages() != null) {
             for (int i = 0; i < createReportRequestDto.getImages().size(); i++) {
                 ReportImageRequestDTO imgDto = createReportRequestDto.getImages().get(i);
@@ -60,6 +62,8 @@ public class ReportService {
             }
             reportRepository.save(saved);
         }
+
+        eventPublisher.publishEvent(new ReportCreatedEvent(this, saved.getId(), user.getId(), saved.getTitle()));
 
         return toDetailsDTO(saved);
     }
