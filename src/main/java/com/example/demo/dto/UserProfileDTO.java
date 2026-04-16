@@ -32,4 +32,7 @@ public class UserProfileDTO {
 
     @NotNull
     private LocalDateTime createdAt;
+
+    @NotNull
+    private String role;
 }

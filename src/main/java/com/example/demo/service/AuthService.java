@@ -6,17 +6,18 @@ import com.example.demo.exception.InvalidVerificationException;
 import com.example.demo.exception.UserAlreadyExistsException;
 import com.example.demo.model.PreRegistration;
 import com.example.demo.model.User;
+import com.example.demo.model.UserRole;
 import com.example.demo.model.UserStatus;
 import com.example.demo.repository.PreRegistrationRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.util.VerificationCodeGenerator;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,7 +66,7 @@ public class AuthService {
     public AuthResponseDTO verifyCode(VerifyRequestDTO req) {
 
         PreRegistration preReg = preRegistrationRepository
-                .findByVerificationCode( req.getCode())
+                .findByVerificationCode(req.getCode())
                 .orElseThrow(() -> new InvalidVerificationException("Invalid verification code"));
 
         if (preReg.getExpiresAt().isBefore(LocalDateTime.now())) {
@@ -81,23 +82,26 @@ public class AuthService {
         user.setPhoneNumber(preReg.getPhoneNumber());
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
+        user.setRole(UserRole.USER);
         userRepository.save(user);
 
         preRegistrationRepository.delete(preReg);
 
-        String token = jwtUtil.generateToken(user.getEmail());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        return new AuthResponseDTO(token, refreshToken, "Email verified successfully");
+        return new AuthResponseDTO(token, refreshToken, "Email verified successfully", user.getRole().name());
 
     }
 
     public AuthResponseDTO login(AuthRequestDTO req) {
         authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
+                new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
         );
-        String token = jwtUtil.generateToken(req.getEmail());
+        User user = userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String token = jwtUtil.generateToken(req.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(req.getEmail());
-        return new AuthResponseDTO(token, refreshToken, "Login successful");
+        return new AuthResponseDTO(token, refreshToken, "Login successful", user.getRole().name());
     }
 
     public RefreshTokenResponseDTO refreshToken(RefreshTokenRequestDTO req) {
@@ -109,7 +113,9 @@ public class AuthService {
             throw new InvalidTokenException("Invalid refresh token");
         }
 
-        String newAccessToken = jwtUtil.generateToken(username);
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String newAccessToken = jwtUtil.generateToken(username, user.getRole().name());
         String newRefreshToken = jwtUtil.generateRefreshToken(username);
         return new RefreshTokenResponseDTO(newAccessToken, newRefreshToken, "Token refreshed");
     }

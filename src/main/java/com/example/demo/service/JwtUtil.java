@@ -1,10 +1,10 @@
 package com.example.demo.service;
 
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
 
 import java.util.Date;
 
@@ -20,9 +20,10 @@ public class JwtUtil {
     @Value("${jwt.refresh-token.expiration-ms}")
     private long refreshTokenExpirationMs;
 
-    public String generateToken(String email) {
+    public String generateToken(String email, String role) {
         return Jwts.builder()
                 .setSubject(email)
+                .claim("role", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpirationMs))
                 .signWith(SignatureAlgorithm.HS256, secret)
@@ -41,6 +42,7 @@ public class JwtUtil {
     public boolean validateRefreshToken(String token, UserDetails userDetails) {
         return extractUsername(token).equals(userDetails.getUsername());
     }
+
     public String extractUsername(String token) {
         return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody().getSubject();
     }

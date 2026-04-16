@@ -17,4 +17,7 @@ public class AuthResponseDTO {
     private String refreshToken;
 
     private String message;
+
+    @NotBlank
+    private String role;
 }

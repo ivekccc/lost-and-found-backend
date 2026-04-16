@@ -42,4 +42,8 @@ public class User {
 
     @Column(name = "fcm_token")
     private String fcmToken;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
 }
