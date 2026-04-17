@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.UserDetailsDTO;
 import com.example.demo.dto.UserListDTO;
 import com.example.demo.model.UserRole;
 import com.example.demo.service.AdminUserService;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,5 +29,12 @@ public class AdminUserController {
     public ResponseEntity<List<UserListDTO>> getAllUsers(@RequestParam(required = false) UserRole role) {
         List<UserListDTO> users = adminUserService.getAllUsers(role);
         return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get user by id", description = "Returns user details by id")
+    public ResponseEntity<UserDetailsDTO> getUserById(@PathVariable Long id) {
+        UserDetailsDTO user = adminUserService.getUserById(id);
+        return ResponseEntity.ok(user);
     }
 }

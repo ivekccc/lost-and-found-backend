@@ -47,6 +47,8 @@ public class ReportDetailsDTO {
     @NotNull
     private Long userId;
 
+    private String userFullName;
+
     private String contactEmail;
 
     private String contactPhone;

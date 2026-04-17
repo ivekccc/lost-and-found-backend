@@ -133,9 +133,18 @@ public class ReportService {
                 report.getCreatedAt(),
                 report.getExpiresAt(),
                 report.getUser().getId(),
+                buildFullName(report.getUser()),
                 report.getContactEmail(),
                 report.getContactPhone(),
                 imageDtos
         );
+    }
+
+    private String buildFullName(User user) {
+        String firstName = user.getFirstName();
+        String lastName = user.getLastName();
+        String combined = (firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName);
+        String trimmed = combined.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
