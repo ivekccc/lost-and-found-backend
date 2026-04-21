@@ -7,15 +7,16 @@ import com.example.demo.model.*;
 import com.example.demo.repository.LocationRepository;
 import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportRepository;
+import com.example.demo.repository.ReportSpecifications;
 import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -69,18 +70,16 @@ public class ReportService {
     }
 
 
-    public List<ReportListDTO> getReports(ReportType type) {
-        List<Report> reports;
+    public List<ReportListDTO> getReports(ReportType type, String search) {
+        Specification<Report> spec = Specification.allOf(
+                ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.hasType(type),
+                ReportSpecifications.titleContains(search)
+        );
 
-        if (type != null) {
-            reports = reportRepository.findByTypeAndStatusNot(type, ReportStatus.DELETED);
-        } else {
-            reports = reportRepository.findByStatusNot(ReportStatus.DELETED);
-        }
-
-        return reports.stream()
+        return reportRepository.findAll(spec).stream()
                 .map(this::toListDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Optional<ReportDetailsDTO> getReportById(Long id) {

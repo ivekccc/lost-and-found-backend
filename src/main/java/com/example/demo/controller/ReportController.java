@@ -35,8 +35,10 @@ public class ReportController {
 
     @GetMapping
     @Operation(summary = "Get all reports", description = "Returns a list of all active reports")
-    public ResponseEntity<List<ReportListDTO>> getReports(@RequestParam(required = false) ReportType type) {
-        List<ReportListDTO> reports = reportService.getReports(type);
+    public ResponseEntity<List<ReportListDTO>> getReports(
+            @RequestParam(required = false) ReportType type,
+            @RequestParam(required = false) String search) {
+        List<ReportListDTO> reports = reportService.getReports(type, search);
         return ResponseEntity.ok(reports);
     }
 
