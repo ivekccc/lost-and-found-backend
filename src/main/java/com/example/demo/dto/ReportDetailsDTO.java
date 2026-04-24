@@ -49,9 +49,11 @@ public class ReportDetailsDTO {
 
     private String userFullName;
 
-    private String contactEmail;
+    @NotNull
+    private Boolean hasContactEmail;
 
-    private String contactPhone;
+    @NotNull
+    private Boolean hasContactPhone;
 
     private List<ReportImageDTO> images;
 }

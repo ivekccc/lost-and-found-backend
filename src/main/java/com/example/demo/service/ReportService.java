@@ -133,8 +133,8 @@ public class ReportService {
                 report.getExpiresAt(),
                 report.getUser().getId(),
                 buildFullName(report.getUser()),
-                report.getContactEmail(),
-                report.getContactPhone(),
+                hasText(report.getContactEmail()),
+                hasText(report.getContactPhone()),
                 imageDtos
         );
     }
@@ -145,5 +145,9 @@ public class ReportService {
         String combined = (firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName);
         String trimmed = combined.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

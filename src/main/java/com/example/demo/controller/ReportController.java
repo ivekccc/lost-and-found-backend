@@ -1,13 +1,16 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.CreateReportRequestDto;
+import com.example.demo.dto.ReportContactDTO;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.model.ReportType;
+import com.example.demo.service.ContactRevealService;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +26,7 @@ import java.util.List;
 @Tag(name = "Reports", description = "Report management endpoints")
 public class ReportController {
     private final ReportService reportService;
+    private final ContactRevealService contactRevealService;
 
     @PostMapping
     @Operation(summary = "Create report", description = "Creates a new lost or found report")
@@ -48,5 +52,21 @@ public class ReportController {
         return reportService.getReportById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/contact")
+    @Operation(summary = "Reveal report contact info", description = "Returns the contact email and phone for a report. Rate-limited per user and audit-logged.")
+    public ResponseEntity<ReportContactDTO> revealContact(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request) {
+
+        ReportContactDTO contact = contactRevealService.revealContact(
+                id,
+                userDetails.getUsername(),
+                request.getRemoteAddr(),
+                request.getHeader("User-Agent")
+        );
+        return ResponseEntity.ok(contact);
     }
 }
