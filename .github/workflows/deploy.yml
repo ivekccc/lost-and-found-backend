@@ -1,0 +1,77 @@
+name: Build & Deploy Backend to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # also allows manual trigger from the Actions tab
+
+# Cancel any older in-flight run on the same branch to save minutes.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ secrets.ACR_NAME }}.azurecr.io/lostandfound-backend:${{ github.sha }}
+            ${{ secrets.ACR_NAME }}.azurecr.io/lostandfound-backend:latest
+          cache-from: type=registry,ref=${{ secrets.ACR_NAME }}.azurecr.io/lostandfound-backend:buildcache
+          cache-to:   type=registry,ref=${{ secrets.ACR_NAME }}.azurecr.io/lostandfound-backend:buildcache,mode=max
+
+      - name: Update Container App to new image
+        run: |
+          az containerapp update \
+            --name ${{ secrets.APP_NAME }} \
+            --resource-group ${{ secrets.RG_NAME }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/lostandfound-backend:${{ github.sha }}
+
+      - name: Wait for new revision to be ready
+        run: |
+          for i in {1..30}; do
+            status=$(az containerapp show \
+              --name ${{ secrets.APP_NAME }} \
+              --resource-group ${{ secrets.RG_NAME }} \
+              --query "properties.runningStatus" -o tsv)
+            echo "Attempt $i: status=$status"
+            if [ "$status" = "Running" ]; then
+              echo "Deployment ready."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for Running status."
+          exit 1
+
+      - name: Smoke test
+        run: |
+          URL=$(az containerapp show \
+            --name ${{ secrets.APP_NAME }} \
+            --resource-group ${{ secrets.RG_NAME }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "Backend URL: https://$URL"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "https://$URL/v3/api-docs")
+          echo "GET /v3/api-docs -> HTTP $code"
+          test "$code" = "200"

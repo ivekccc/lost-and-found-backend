@@ -1,0 +1,14 @@
+target/
+.mvn/wrapper/maven-wrapper.jar.lck
+.idea/
+.vscode/
+*.iml
+.git/
+.gitignore
+*.log
+.DS_Store
+HELP.md
+README.md
+claude.md
+*.drawio
+src/test/
