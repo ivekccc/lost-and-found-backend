@@ -13,6 +13,9 @@ public class HelloController {
         return "Ovo je tajni string!";
     }
 
-
+    @GetMapping("/ping")
+    public String ping() {
+        return "pong";
+    }
 
 }
