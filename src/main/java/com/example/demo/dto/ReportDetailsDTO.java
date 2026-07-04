@@ -56,4 +56,6 @@ public class ReportDetailsDTO {
     private Boolean hasContactPhone;
 
     private List<ReportImageDTO> images;
+
+    private Long challengeId;
 }

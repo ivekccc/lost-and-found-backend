@@ -7,6 +7,7 @@ import com.example.demo.model.Location;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -44,6 +45,8 @@ public class LocationService {
             return Arrays.stream(results)
                     .map(this::toAutoCompleteDTO)
                     .collect(Collectors.toList());
+        } catch (HttpClientErrorException.TooManyRequests | HttpClientErrorException.NotFound e) {
+            return Collections.emptyList();
         } catch (Exception e) {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
         }

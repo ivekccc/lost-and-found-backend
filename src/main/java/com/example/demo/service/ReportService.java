@@ -5,6 +5,7 @@ import com.example.demo.event.ReportCreatedEvent;
 import com.example.demo.exception.InvalidChallengeException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
+import com.example.demo.repository.ChallengeRepository;
 import com.example.demo.repository.LocationRepository;
 import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportRepository;
@@ -28,6 +29,7 @@ public class ReportService {
     private final LocationRepository locationRepository;
     private final LocationService locationService;
     private final ChallengeService challengeService;
+    private final ChallengeRepository challengeRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -132,6 +134,12 @@ public class ReportService {
                 .map(img -> new ReportImageDTO(img.getId(), img.getImageUrl(), img.getDisplayOrder()))
                 .toList();
 
+        Long challengeId = report.getType() == ReportType.FOUND
+                ? challengeRepository.findByReportIdAndAuthorId(report.getId(), report.getUser().getId())
+                        .map(Challenge::getId)
+                        .orElse(null)
+                : null;
+
         return new ReportDetailsDTO(
                 report.getId(),
                 report.getTitle(),
@@ -147,7 +155,8 @@ public class ReportService {
                 buildFullName(report.getUser()),
                 hasText(report.getContactEmail()),
                 hasText(report.getContactPhone()),
-                imageDtos
+                imageDtos,
+                challengeId
         );
     }
 

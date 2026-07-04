@@ -17,7 +17,8 @@ public class ReportCategoryService {
     public List<ReportCategoryDto> getAllActiveCategories(){
         return reportCategoryRepository.findByIsActiveTrue().stream().map(reportCategory -> new ReportCategoryDto(
                 reportCategory.getId(),
-                reportCategory.getName()
+                reportCategory.getName(),
+                reportCategory.getMinQuestions()
         )).collect(Collectors.toList());
     }
 }

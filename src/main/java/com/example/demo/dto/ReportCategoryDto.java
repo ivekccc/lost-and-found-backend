@@ -16,4 +16,7 @@ public class ReportCategoryDto {
 
     @NotBlank
     private String name;
+
+    @NotNull
+    private Integer minQuestions;
 }
