@@ -355,6 +355,7 @@ public class ClaimService {
                 claim.getId(),
                 claim.getChallenge().getId(),
                 claim.getChallenge().getReport().getId(),
+                claim.getChallenge().getReport().getTitle(),
                 claim.getStatus(),
                 claim.getMessage(),
                 claim.getPhotoUrl(),
