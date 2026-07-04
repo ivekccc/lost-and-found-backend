@@ -1,6 +1,8 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.QuestionTemplateDto;
 import com.example.demo.dto.ReportCategoryDto;
+import com.example.demo.service.QuestionTemplateService;
 import com.example.demo.service.ReportCategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -12,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,6 +27,7 @@ import java.util.List;
 public class ReportCategoryController {
 
     private final ReportCategoryService reportCategoryService;
+    private final QuestionTemplateService questionTemplateService;
 
     @GetMapping
     @Operation(summary = "Get all categories", description = "Returns a list of all active report categories")
@@ -39,5 +43,22 @@ public class ReportCategoryController {
     })
     public ResponseEntity<List<ReportCategoryDto>> getAllCategories() {
         return ResponseEntity.ok(reportCategoryService.getAllActiveCategories());
+    }
+
+    @GetMapping("/{id}/question-templates")
+    @Operation(summary = "Get question templates", description = "Returns active verification question templates for a category, offered when composing a challenge")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved question templates",
+                    content = @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = QuestionTemplateDto.class))
+                    )
+            ),
+            @ApiResponse(responseCode = "404", description = "Category not found")
+    })
+    public ResponseEntity<List<QuestionTemplateDto>> getQuestionTemplates(@PathVariable Long id) {
+        return ResponseEntity.ok(questionTemplateService.getActiveTemplatesForCategory(id));
     }
 }
