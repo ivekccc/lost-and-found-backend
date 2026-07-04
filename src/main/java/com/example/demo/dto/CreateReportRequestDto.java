@@ -44,4 +44,8 @@ public class CreateReportRequestDto {
     @Valid
     @Size(max = 5, message = "Maximum 5 images per report")
     private List<ReportImageRequestDTO> images;
+
+    @Valid
+    @Size(max = 10, message = "Maximum 10 verification questions per report")
+    private List<ChallengeQuestionRequestDto> questions;
 }

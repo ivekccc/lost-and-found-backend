@@ -63,6 +63,18 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.NOT_FOUND.value()));
     }
 
+    @ExceptionHandler(InvalidClaimException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidClaim(InvalidClaimException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
+    @ExceptionHandler(InvalidChallengeException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidChallenge(InvalidChallengeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<ErrorResponseDTO> handleRateLimitExceeded(RateLimitExceededException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)

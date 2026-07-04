@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.*;
 import com.example.demo.event.ReportCreatedEvent;
+import com.example.demo.exception.InvalidChallengeException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
 import com.example.demo.repository.LocationRepository;
@@ -26,6 +27,7 @@ public class ReportService {
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
     private final LocationService locationService;
+    private final ChallengeService challengeService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -48,8 +50,18 @@ public class ReportService {
             report.setLocation(location);
         }
 
+        if (createReportRequestDto.getType() == ReportType.LOST
+                && createReportRequestDto.getQuestions() != null
+                && !createReportRequestDto.getQuestions().isEmpty()) {
+            throw new InvalidChallengeException(
+                    "Lost reports cannot have verification questions — finders create them via a challenge");
+        }
+
         Report saved = reportRepository.save(report);
 
+        if (createReportRequestDto.getType() == ReportType.FOUND) {
+            challengeService.createChallenge(saved, user, createReportRequestDto.getQuestions());
+        }
 
         if (createReportRequestDto.getImages() != null) {
             for (int i = 0; i < createReportRequestDto.getImages().size(); i++) {

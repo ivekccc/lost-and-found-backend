@@ -23,4 +23,11 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     @Query("SELECT COUNT(c) FROM Claim c WHERE c.claimant.id = :claimantId AND c.submittedAt >= :since")
     long countByClaimantIdSince(@Param("claimantId") Long claimantId, @Param("since") LocalDateTime since);
+
+    @Query("SELECT c FROM Claim c WHERE c.challenge.report.id = :reportId AND c.status = :status")
+    List<Claim> findByReportIdAndStatus(@Param("reportId") Long reportId, @Param("status") ClaimStatus status);
+
+    List<Claim> findByStatusOrderBySubmittedAtDesc(ClaimStatus status);
+
+    List<Claim> findAllByOrderBySubmittedAtDesc();
 }

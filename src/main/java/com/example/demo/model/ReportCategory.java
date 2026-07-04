@@ -18,4 +18,7 @@ public class ReportCategory {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    @Column(name = "min_questions", nullable = false)
+    private Integer minQuestions = 2;
 }
