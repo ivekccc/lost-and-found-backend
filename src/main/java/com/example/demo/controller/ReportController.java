@@ -38,11 +38,19 @@ public class ReportController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all reports", description = "Returns a list of all active reports")
+    @Operation(summary = "Get all reports", description = "Returns active reports from other users (the caller's own reports are excluded)")
     public ResponseEntity<List<ReportListDTO>> getReports(
             @RequestParam(required = false) ReportType type,
-            @RequestParam(required = false) String search) {
-        List<ReportListDTO> reports = reportService.getReports(type, search);
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<ReportListDTO> reports = reportService.getReports(type, search, userDetails.getUsername());
+        return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/mine")
+    @Operation(summary = "Get my reports", description = "Returns the current user's own reports (all statuses except deleted)")
+    public ResponseEntity<List<ReportListDTO>> getMyReports(@AuthenticationPrincipal UserDetails userDetails) {
+        List<ReportListDTO> reports = reportService.getMyReports(userDetails.getUsername());
         return ResponseEntity.ok(reports);
     }
 

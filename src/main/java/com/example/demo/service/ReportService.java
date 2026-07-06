@@ -84,11 +84,29 @@ public class ReportService {
     }
 
 
-    public List<ReportListDTO> getReports(ReportType type, String search) {
+    public List<ReportListDTO> getReports(ReportType type, String search, String userEmail) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.userIdNotEquals(currentUser.getId()),
                 ReportSpecifications.hasType(type),
                 ReportSpecifications.titleContains(search)
+        );
+
+        return reportRepository.findAll(spec).stream()
+                .map(this::toListDTO)
+                .toList();
+    }
+
+    public List<ReportListDTO> getMyReports(String userEmail) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Specification<Report> spec = Specification.allOf(
+                ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.userIdEquals(currentUser.getId())
         );
 
         return reportRepository.findAll(spec).stream()

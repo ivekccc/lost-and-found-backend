@@ -24,6 +24,20 @@ public final class ReportSpecifications {
         return (root, query, builder) -> builder.notEqual(root.get("status"), status);
     }
 
+    public static Specification<Report> userIdEquals(Long userId) {
+        if (userId == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, builder) -> builder.equal(root.get("user").get("id"), userId);
+    }
+
+    public static Specification<Report> userIdNotEquals(Long userId) {
+        if (userId == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, builder) -> builder.notEqual(root.get("user").get("id"), userId);
+    }
+
     public static Specification<Report> titleContains(String search) {
         if (search == null || search.isBlank()) {
             return Specification.unrestricted();
