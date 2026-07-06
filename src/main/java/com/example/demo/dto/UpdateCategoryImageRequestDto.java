@@ -1,7 +1,6 @@
 package com.example.demo.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,16 +8,11 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ReportCategoryDto {
+public class UpdateCategoryImageRequestDto {
 
-    @NotNull
-    private Long id;
-
-    @NotBlank
-    private String name;
-
-    @NotNull
-    private Integer minQuestions;
-
+    @NotBlank(message = "Image URL is required")
     private String imageUrl;
+
+    @NotBlank(message = "Image public id is required")
+    private String imagePublicId;
 }

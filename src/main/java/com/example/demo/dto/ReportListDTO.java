@@ -27,6 +27,8 @@ public class ReportListDTO {
     @NotBlank
     private String categoryName;
 
+    private String categoryImageUrl;
+
     @NotNull
     private ReportStatus status;
 

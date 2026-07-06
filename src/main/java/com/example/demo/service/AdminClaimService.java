@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AdminClaimListDto;
+import com.example.demo.dto.UpdateCategoryImageRequestDto;
 import com.example.demo.dto.UpdateMinQuestionsRequestDto;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.Claim;
@@ -21,6 +22,7 @@ public class AdminClaimService {
 
     private final ClaimRepository claimRepository;
     private final ReportCategoryRepository reportCategoryRepository;
+    private final CloudinaryService cloudinaryService;
 
     @Transactional(readOnly = true)
     public List<AdminClaimListDto> getClaims(ClaimStatus status) {
@@ -37,6 +39,22 @@ public class AdminClaimService {
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
         category.setMinQuestions(request.getMinQuestions());
         reportCategoryRepository.save(category);
+    }
+
+    @Transactional
+    public void updateCategoryImage(Long categoryId, UpdateCategoryImageRequestDto request) {
+        ReportCategory category = reportCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+
+        String previousPublicId = category.getImagePublicId();
+
+        category.setImageUrl(request.getImageUrl());
+        category.setImagePublicId(request.getImagePublicId());
+        reportCategoryRepository.save(category);
+
+        if (previousPublicId != null && !previousPublicId.equals(request.getImagePublicId())) {
+            cloudinaryService.deleteImage(previousPublicId);
+        }
     }
 
     private AdminClaimListDto toDto(Claim claim) {

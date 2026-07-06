@@ -80,7 +80,7 @@ public class ReportService {
 
         eventPublisher.publishEvent(new ReportCreatedEvent(this, saved.getId(), user.getId(), saved.getTitle()));
 
-        return toDetailsDTO(saved);
+        return toDetailsDTO(saved, user.getId());
     }
 
 
@@ -96,7 +96,7 @@ public class ReportService {
         );
 
         return reportRepository.findAll(spec).stream()
-                .map(this::toListDTO)
+                .map(report -> toListDTO(report, currentUser.getId()))
                 .toList();
     }
 
@@ -110,14 +110,17 @@ public class ReportService {
         );
 
         return reportRepository.findAll(spec).stream()
-                .map(this::toListDTO)
+                .map(report -> toListDTO(report, currentUser.getId()))
                 .toList();
     }
 
-    public Optional<ReportDetailsDTO> getReportById(Long id) {
+    public Optional<ReportDetailsDTO> getReportById(Long id, String userEmail) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         return reportRepository.findById(id)
                 .filter(report -> report.getStatus() != ReportStatus.DELETED)
-                .map(this::toDetailsDTO);
+                .map(report -> toDetailsDTO(report, currentUser.getId()));
     }
 
     private Location findOrCreateLocation(LocationRequestDTO dto) {
@@ -130,8 +133,13 @@ public class ReportService {
         return locationRepository.save(location);
     }
 
-    private ReportListDTO toListDTO(Report report) {
-        String thumbnailUrl = report.getImages().isEmpty()
+    private boolean hidesImagesFrom(Report report, Long viewerId) {
+        return report.getType() == ReportType.FOUND
+                && !report.getUser().getId().equals(viewerId);
+    }
+
+    private ReportListDTO toListDTO(Report report, Long viewerId) {
+        String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewerId)
                 ? null
                 : report.getImages().getFirst().getImageUrl();
 
@@ -140,6 +148,7 @@ public class ReportService {
                 report.getTitle(),
                 report.getType(),
                 report.getCategory().getName(),
+                report.getCategory().getImageUrl(),
                 report.getStatus(),
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),
@@ -147,10 +156,12 @@ public class ReportService {
         );
     }
 
-    private ReportDetailsDTO toDetailsDTO(Report report) {
-        List<ReportImageDTO> imageDtos = report.getImages().stream()
-                .map(img -> new ReportImageDTO(img.getId(), img.getImageUrl(), img.getDisplayOrder()))
-                .toList();
+    private ReportDetailsDTO toDetailsDTO(Report report, Long viewerId) {
+        List<ReportImageDTO> imageDtos = hidesImagesFrom(report, viewerId)
+                ? List.of()
+                : report.getImages().stream()
+                        .map(img -> new ReportImageDTO(img.getId(), img.getImageUrl(), img.getDisplayOrder()))
+                        .toList();
 
         Long challengeId = report.getType() == ReportType.FOUND
                 ? challengeRepository.findByReportIdAndAuthorId(report.getId(), report.getUser().getId())
@@ -165,6 +176,7 @@ public class ReportService {
                 report.getType(),
                 report.getCategory().getId(),
                 report.getCategory().getName(),
+                report.getCategory().getImageUrl(),
                 report.getStatus(),
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),

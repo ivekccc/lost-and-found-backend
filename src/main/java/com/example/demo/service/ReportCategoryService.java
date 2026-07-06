@@ -18,7 +18,8 @@ public class ReportCategoryService {
         return reportCategoryRepository.findByIsActiveTrue().stream().map(reportCategory -> new ReportCategoryDto(
                 reportCategory.getId(),
                 reportCategory.getName(),
-                reportCategory.getMinQuestions()
+                reportCategory.getMinQuestions(),
+                reportCategory.getImageUrl()
         )).collect(Collectors.toList());
     }
 }

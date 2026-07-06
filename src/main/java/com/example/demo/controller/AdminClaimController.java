@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.AdminClaimListDto;
+import com.example.demo.dto.UpdateCategoryImageRequestDto;
 import com.example.demo.dto.UpdateMinQuestionsRequestDto;
 import com.example.demo.model.ClaimStatus;
 import com.example.demo.service.AdminClaimService;
@@ -38,6 +39,16 @@ public class AdminClaimController {
             @Valid @RequestBody UpdateMinQuestionsRequestDto request) {
 
         adminClaimService.updateMinQuestions(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/admin/report-categories/{id}/image")
+    @Operation(summary = "Update category image", description = "Sets the category placeholder image shown instead of found-report photos; the previous Cloudinary image is deleted")
+    public ResponseEntity<Void> updateCategoryImage(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCategoryImageRequestDto request) {
+
+        adminClaimService.updateCategoryImage(id, request);
         return ResponseEntity.noContent().build();
     }
 }

@@ -33,6 +33,8 @@ public class ReportDetailsDTO {
     @NotBlank
     private String categoryName;
 
+    private String categoryImageUrl;
+
     @NotNull
     private ReportStatus status;
 

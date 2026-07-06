@@ -51,9 +51,11 @@ public class ReportController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get report by ID", description = "Returns detailed information about a specific report")
-    public ResponseEntity<ReportDetailsDTO> getReportById(@PathVariable Long id) {
-        return reportService.getReportById(id)
+    @Operation(summary = "Get report by ID", description = "Returns detailed information about a specific report. Found-report photos are only included for the report owner.")
+    public ResponseEntity<ReportDetailsDTO> getReportById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return reportService.getReportById(id, userDetails.getUsername())
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
