@@ -4,11 +4,13 @@ import com.example.demo.dto.ChallengeDto;
 import com.example.demo.dto.ChallengeQuestionDto;
 import com.example.demo.dto.ChallengeQuestionRequestDto;
 import com.example.demo.dto.CreateChallengeRequestDto;
+import com.example.demo.dto.ReportChallengeDto;
 import com.example.demo.event.ChallengeCreatedEvent;
 import com.example.demo.exception.InvalidChallengeException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.Challenge;
 import com.example.demo.model.ChallengeQuestion;
+import com.example.demo.model.Claim;
 import com.example.demo.model.QuestionKind;
 import com.example.demo.model.QuestionSource;
 import com.example.demo.model.QuestionTemplate;
@@ -17,6 +19,7 @@ import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
 import com.example.demo.model.User;
 import com.example.demo.repository.ChallengeRepository;
+import com.example.demo.repository.ClaimRepository;
 import com.example.demo.repository.QuestionTemplateRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.UserRepository;
@@ -32,10 +35,55 @@ import java.util.List;
 public class ChallengeService {
 
     private final ChallengeRepository challengeRepository;
+    private final ClaimRepository claimRepository;
     private final QuestionTemplateRepository questionTemplateRepository;
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+
+    @Transactional(readOnly = true)
+    public List<ReportChallengeDto> getChallengesForReportOwner(Long reportId, String userEmail) {
+        User owner = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Report report = reportRepository.findById(reportId)
+                .filter(r -> r.getStatus() != ReportStatus.DELETED)
+                .orElseThrow(() -> new ResourceNotFoundException("Report with id " + reportId + " not found"));
+
+        if (report.getType() != ReportType.LOST) {
+            throw new InvalidChallengeException("Only lost reports receive challenges from finders");
+        }
+        if (!report.getUser().getId().equals(owner.getId())) {
+            throw new InvalidChallengeException("Only the report owner can view received challenges");
+        }
+
+        return challengeRepository.findByReportIdOrderByCreatedAtAsc(reportId).stream()
+                .map(challenge -> toReportChallengeDto(challenge, owner))
+                .toList();
+    }
+
+    private ReportChallengeDto toReportChallengeDto(Challenge challenge, User owner) {
+        List<Claim> myClaims = claimRepository
+                .findByChallengeIdAndClaimantIdOrderBySubmittedAtDesc(challenge.getId(), owner.getId());
+        Claim latest = myClaims.isEmpty() ? null : myClaims.get(0);
+
+        return new ReportChallengeDto(
+                challenge.getId(),
+                buildDisplayName(challenge.getAuthor()),
+                challenge.getCreatedAt(),
+                challenge.getQuestions().size(),
+                latest == null ? null : latest.getId(),
+                latest == null ? null : latest.getStatus(),
+                myClaims.size()
+        );
+    }
+
+    private String buildDisplayName(User user) {
+        String firstName = user.getFirstName();
+        String lastName = user.getLastName();
+        String combined = (firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName);
+        String trimmed = combined.trim();
+        return trimmed.isEmpty() ? user.getUsername() : trimmed;
+    }
 
     @Transactional
     public ChallengeDto createChallengeForLostReport(Long reportId, String userEmail, CreateChallengeRequestDto request) {

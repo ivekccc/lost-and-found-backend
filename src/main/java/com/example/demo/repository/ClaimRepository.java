@@ -17,6 +17,8 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     List<Claim> findByChallengeIdAndStatus(Long challengeId, ClaimStatus status);
 
+    List<Claim> findByChallengeIdAndClaimantIdOrderBySubmittedAtDesc(Long challengeId, Long claimantId);
+
     long countByChallengeIdAndClaimantId(Long challengeId, Long claimantId);
 
     boolean existsByChallengeIdAndClaimantIdAndStatus(Long challengeId, Long claimantId, ClaimStatus status);

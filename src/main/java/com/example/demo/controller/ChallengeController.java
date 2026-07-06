@@ -3,9 +3,11 @@ package com.example.demo.controller;
 import com.example.demo.dto.ChallengeDto;
 import com.example.demo.dto.ClaimantChallengeDto;
 import com.example.demo.dto.CreateChallengeRequestDto;
+import com.example.demo.dto.ReportChallengeDto;
 import com.example.demo.service.ChallengeService;
 import com.example.demo.service.ClaimService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -50,6 +53,23 @@ public class ChallengeController {
         ChallengeDto created = challengeService.createChallengeForLostReport(reportId, userDetails.getUsername(), request);
         URI location = URI.create("/challenges/" + created.getId());
         return ResponseEntity.created(location).body(created);
+    }
+
+    @GetMapping("/reports/{reportId}/challenges")
+    @Operation(summary = "List challenges received on my lost report",
+            description = "Report owner only — challenges finders created on this lost report, each with the status of the owner's latest claim")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved challenges",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = ReportChallengeDto.class)))),
+            @ApiResponse(responseCode = "400", description = "Not a lost report or not the report owner"),
+            @ApiResponse(responseCode = "404", description = "Report not found")
+    })
+    public ResponseEntity<List<ReportChallengeDto>> getChallengesForReport(
+            @PathVariable Long reportId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        return ResponseEntity.ok(challengeService.getChallengesForReportOwner(reportId, userDetails.getUsername()));
     }
 
     @GetMapping("/challenges/{id}")
