@@ -109,7 +109,7 @@ public class AuthService {
         String username = jwtUtil.extractUsername(refreshToken);
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-        if (!jwtUtil.validateRefreshToken(refreshToken, userDetails)) {
+        if (!userDetails.isEnabled() || !jwtUtil.validateRefreshToken(refreshToken, userDetails)) {
             throw new InvalidTokenException("Invalid refresh token");
         }
 

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,5 +37,13 @@ public class AdminUserController {
     public ResponseEntity<UserDetailsDTO> getUserById(@PathVariable Long id) {
         UserDetailsDTO user = adminUserService.getUserById(id);
         return ResponseEntity.ok(user);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete user account",
+            description = "Erases the user's personal data (GDPR): deletes their reports and photos, anonymizes claims/challenges on other users' reports, and deactivates the account")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        adminUserService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }

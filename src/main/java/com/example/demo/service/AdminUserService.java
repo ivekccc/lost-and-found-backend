@@ -5,6 +5,7 @@ import com.example.demo.dto.UserListDTO;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.User;
 import com.example.demo.model.UserRole;
+import com.example.demo.model.UserStatus;
 import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,15 @@ import java.util.stream.Collectors;
 public class AdminUserService {
 
     private final UserRepository userRepository;
+    private final AccountDeletionService accountDeletionService;
+
+    public void deleteUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getStatus() != UserStatus.DELETED) {
+            accountDeletionService.deleteAccount(user);
+        }
+    }
 
     public List<UserListDTO> getAllUsers(UserRole role) {
         List<User> users;
