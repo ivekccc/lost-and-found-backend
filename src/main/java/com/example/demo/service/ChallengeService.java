@@ -93,6 +93,10 @@ public class ChallengeService {
                 .filter(r -> r.getStatus() != ReportStatus.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("Report with id " + reportId + " not found"));
 
+        if (author.getStatus() == com.example.demo.model.UserStatus.PARTIALLY_BLOCKED) {
+            throw new com.example.demo.exception.AccountRestrictedException(
+                    "Your account is restricted and cannot send verification questions");
+        }
         if (report.getType() != ReportType.LOST) {
             throw new InvalidChallengeException(
                     "Challenges can only be created on lost reports — found reports get theirs at creation");

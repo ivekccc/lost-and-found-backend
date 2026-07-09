@@ -88,4 +88,16 @@ public class GlobalExceptionHandler {
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
                 .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.TOO_MANY_REQUESTS.value()));
     }
+
+    @ExceptionHandler(InvalidAbuseReportException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidAbuseReport(InvalidAbuseReportException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
+    @ExceptionHandler(AccountRestrictedException.class)
+    public ResponseEntity<ErrorResponseDTO> handleAccountRestricted(AccountRestrictedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.FORBIDDEN.value()));
+    }
 }

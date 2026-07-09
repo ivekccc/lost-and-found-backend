@@ -6,8 +6,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,5 +27,19 @@ public class AdminReportController {
     public ResponseEntity<AdminReportDetailsDTO> getReportById(@PathVariable Long id) {
         AdminReportDetailsDTO report = adminReportService.getReportById(id);
         return ResponseEntity.ok(report);
+    }
+
+    @PostMapping("/{id}/flag")
+    @Operation(summary = "Flag report", description = "Hides the listing from public lists and resolves open reports against it")
+    public ResponseEntity<Void> flagReport(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        adminReportService.flagReport(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/unflag")
+    @Operation(summary = "Unflag report", description = "Restores a flagged listing to active")
+    public ResponseEntity<Void> unflagReport(@PathVariable Long id) {
+        adminReportService.unflagReport(id);
+        return ResponseEntity.noContent().build();
     }
 }

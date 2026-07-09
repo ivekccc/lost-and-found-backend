@@ -2,9 +2,11 @@ package com.example.demo.service;
 
 import com.example.demo.dto.*;
 import com.example.demo.event.ReportCreatedEvent;
+import com.example.demo.exception.AccountRestrictedException;
 import com.example.demo.exception.InvalidChallengeException;
 import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
+import com.example.demo.repository.AbuseReportRepository;
 import com.example.demo.repository.ChallengeRepository;
 import com.example.demo.repository.LocationRepository;
 import com.example.demo.repository.ReportCategoryRepository;
@@ -17,12 +19,19 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class ReportService {
+
+    // A listing is publicly marked "under review" only after enough distinct users report it,
+    // so a single (possibly malicious) report can't taint someone else's listing.
+    private static final long REPORT_VISIBILITY_THRESHOLD = 5;
+
     private final ReportRepository reportRepository;
     private final ReportCategoryRepository reportCategoryRepository;
     private final UserRepository userRepository;
@@ -30,11 +39,17 @@ public class ReportService {
     private final LocationService locationService;
     private final ChallengeService challengeService;
     private final ChallengeRepository challengeRepository;
+    private final AbuseReportRepository abuseReportRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
         User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (createReportRequestDto.getType() == ReportType.FOUND && user.getStatus() == UserStatus.PARTIALLY_BLOCKED) {
+            throw new AccountRestrictedException("Your account is restricted and cannot post found items");
+        }
+
         ReportCategory reportCategory = reportCategoryRepository.findById(createReportRequestDto.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
         Report report = new Report();
@@ -80,7 +95,7 @@ public class ReportService {
 
         eventPublisher.publishEvent(new ReportCreatedEvent(this, saved.getId(), user.getId(), saved.getTitle()));
 
-        return toDetailsDTO(saved, user.getId());
+        return toDetailsDTO(saved, user.getId(), false);
     }
 
 
@@ -90,13 +105,16 @@ public class ReportService {
 
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.statusNot(ReportStatus.FLAGGED),
                 ReportSpecifications.userIdNotEquals(currentUser.getId()),
                 ReportSpecifications.hasType(type),
                 ReportSpecifications.titleContains(search)
         );
 
-        return reportRepository.findAll(spec).stream()
-                .map(report -> toListDTO(report, currentUser.getId()))
+        List<Report> reports = reportRepository.findAll(spec);
+        Set<Long> reportedIds = findReportedIds(reports);
+        return reports.stream()
+                .map(report -> toListDTO(report, currentUser.getId(), reportedIds))
                 .toList();
     }
 
@@ -109,9 +127,20 @@ public class ReportService {
                 ReportSpecifications.userIdEquals(currentUser.getId())
         );
 
-        return reportRepository.findAll(spec).stream()
-                .map(report -> toListDTO(report, currentUser.getId()))
+        List<Report> reports = reportRepository.findAll(spec);
+        Set<Long> reportedIds = findReportedIds(reports);
+        return reports.stream()
+                .map(report -> toListDTO(report, currentUser.getId(), reportedIds))
                 .toList();
+    }
+
+    private Set<Long> findReportedIds(List<Report> reports) {
+        if (reports.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> ids = reports.stream().map(Report::getId).toList();
+        return new HashSet<>(abuseReportRepository.findReportIdsWithAtLeast(
+                ids, AbuseReportStatus.PENDING, REPORT_VISIBILITY_THRESHOLD));
     }
 
     public Optional<ReportDetailsDTO> getReportById(Long id, String userEmail) {
@@ -120,7 +149,11 @@ public class ReportService {
 
         return reportRepository.findById(id)
                 .filter(report -> report.getStatus() != ReportStatus.DELETED)
-                .map(report -> toDetailsDTO(report, currentUser.getId()));
+                .filter(report -> report.getStatus() != ReportStatus.FLAGGED
+                        || report.getUser().getId().equals(currentUser.getId()))
+                .map(report -> toDetailsDTO(report, currentUser.getId(),
+                        abuseReportRepository.countByTargetReportIdAndStatus(report.getId(), AbuseReportStatus.PENDING)
+                                >= REPORT_VISIBILITY_THRESHOLD));
     }
 
     private Location findOrCreateLocation(LocationRequestDTO dto) {
@@ -138,7 +171,7 @@ public class ReportService {
                 && !report.getUser().getId().equals(viewerId);
     }
 
-    private ReportListDTO toListDTO(Report report, Long viewerId) {
+    private ReportListDTO toListDTO(Report report, Long viewerId, Set<Long> reportedIds) {
         String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewerId)
                 ? null
                 : report.getImages().getFirst().getImageUrl();
@@ -152,11 +185,12 @@ public class ReportService {
                 report.getStatus(),
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),
-                thumbnailUrl
+                thumbnailUrl,
+                reportedIds.contains(report.getId())
         );
     }
 
-    private ReportDetailsDTO toDetailsDTO(Report report, Long viewerId) {
+    private ReportDetailsDTO toDetailsDTO(Report report, Long viewerId, boolean reported) {
         List<ReportImageDTO> imageDtos = hidesImagesFrom(report, viewerId)
                 ? List.of()
                 : report.getImages().stream()
@@ -186,7 +220,8 @@ public class ReportService {
                 hasText(report.getContactEmail()),
                 hasText(report.getContactPhone()),
                 imageDtos,
-                challengeId
+                challengeId,
+                reported
         );
     }
 

@@ -60,4 +60,7 @@ public class ReportDetailsDTO {
     private List<ReportImageDTO> images;
 
     private Long challengeId;
+
+    @NotNull
+    private Boolean reported;
 }

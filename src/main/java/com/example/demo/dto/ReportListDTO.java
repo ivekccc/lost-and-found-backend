@@ -39,4 +39,7 @@ public class ReportListDTO {
     private LocalDateTime createdAt;
 
     private String thumbnailUrl;
+
+    @NotNull
+    private Boolean reported;
 }

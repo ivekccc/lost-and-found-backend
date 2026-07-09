@@ -10,6 +10,7 @@ import com.example.demo.model.User;
 import com.example.demo.repository.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -18,12 +19,32 @@ import java.util.List;
 public class AdminReportService {
 
     private final ReportRepository reportRepository;
+    private final AbuseReportService abuseReportService;
 
     public AdminReportDetailsDTO getReportById(Long id) {
         Report report = reportRepository.findById(id)
                 .filter(r -> r.getStatus() != ReportStatus.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
         return mapToDetailsDTO(report);
+    }
+
+    @Transactional
+    public void flagReport(Long id, String adminEmail) {
+        Report report = reportRepository.findById(id)
+                .filter(r -> r.getStatus() != ReportStatus.DELETED)
+                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+        report.setStatus(ReportStatus.FLAGGED);
+        reportRepository.save(report);
+        abuseReportService.resolveReportsForReport(id, adminEmail);
+    }
+
+    @Transactional
+    public void unflagReport(Long id) {
+        Report report = reportRepository.findById(id)
+                .filter(r -> r.getStatus() == ReportStatus.FLAGGED)
+                .orElseThrow(() -> new ResourceNotFoundException("Flagged report not found"));
+        report.setStatus(ReportStatus.ACTIVE);
+        reportRepository.save(report);
     }
 
     private AdminReportDetailsDTO mapToDetailsDTO(Report report) {

@@ -23,7 +23,7 @@ public class MyUserDetailsService implements UserDetailsService {
                 .withUsername(user.getEmail())
                 .password(user.getPassword())
                 .authorities("ROLE_" + user.getRole().name())
-                .disabled(user.getStatus() != UserStatus.ACTIVE)
+                .disabled(user.getStatus() == UserStatus.BLOCKED || user.getStatus() == UserStatus.DELETED)
                 .build();
     }
 }
