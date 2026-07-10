@@ -45,6 +45,24 @@ public class CloudinaryService {
         return new CloudinarySignatureDTO(signature, timestamp, cloudName, apiKey, uploadFolder);
     }
 
+    @SuppressWarnings("unchecked")
+    public UploadedImage uploadImageFromUrl(String imageUrl) {
+        try {
+            Map<String, Object> result = cloudinary.uploader().upload(imageUrl, ObjectUtils.asMap(
+                    "folder", uploadFolder
+            ));
+            return new UploadedImage(
+                    (String) result.get("secure_url"),
+                    (String) result.get("public_id"));
+        } catch (Exception e) {
+            log.error("Failed to upload image to Cloudinary from URL: {}", imageUrl, e);
+            return null;
+        }
+    }
+
+    public record UploadedImage(String url, String publicId) {
+    }
+
     public void deleteImage(String publicId) {
         try {
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());

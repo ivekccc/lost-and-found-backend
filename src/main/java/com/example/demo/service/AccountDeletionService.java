@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.DeleteAccountRequestDto;
 import com.example.demo.model.Challenge;
 import com.example.demo.model.Claim;
 import com.example.demo.model.Report;
@@ -33,21 +34,39 @@ public class AccountDeletionService {
     private final ClaimRepository claimRepository;
     private final NotificationRepository notificationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
-     * Self-service deletion: the caller must confirm their current password before the account is erased.
+     * Self-service deletion: the caller must re-confirm their identity before the account is erased —
+     * with the current password, or with a fresh Google ID token for Google-linked accounts
+     * (which have no usable password).
      */
     @Transactional
-    public void deleteOwnAccount(String userEmail, String rawPassword) {
+    public void deleteOwnAccount(String userEmail, DeleteAccountRequestDto request) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
-            throw new BadCredentialsException("Invalid password");
-        }
-
+        verifyIdentity(user, request);
         deleteAccount(user);
+    }
+
+    private void verifyIdentity(User user, DeleteAccountRequestDto request) {
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                throw new BadCredentialsException("Invalid password");
+            }
+            return;
+        }
+        if (request.getGoogleIdToken() != null && !request.getGoogleIdToken().isBlank()) {
+            GoogleTokenVerifierService.GoogleIdentity identity =
+                    googleTokenVerifierService.verify(request.getGoogleIdToken());
+            if (user.getGoogleSub() == null || !identity.subject().equals(user.getGoogleSub())) {
+                throw new BadCredentialsException("Google account does not match this account");
+            }
+            return;
+        }
+        throw new BadCredentialsException("Password or Google confirmation is required");
     }
 
     /**
@@ -63,6 +82,9 @@ public class AccountDeletionService {
         // The bulk notification delete clears the persistence context, so it must run before any
         // entity changes below — otherwise those pending changes would be discarded on the clear.
         notificationRepository.deleteByUserId(userId);
+        if (user.getAvatarPublicId() != null) {
+            imagesToRemove.add(user.getAvatarPublicId());
+        }
         stripOwnClaimsOnOtherReports(userId, imagesToRemove);
         deleteOwnReports(userId, imagesToRemove);
         anonymize(user);
@@ -113,6 +135,9 @@ public class AccountDeletionService {
         user.setLastName(null);
         user.setPhoneNumber(null);
         user.setFcmToken(null);
+        user.setGoogleSub(null);
+        user.setAvatarUrl(null);
+        user.setAvatarPublicId(null);
         user.setPassword("");
         user.setStatus(UserStatus.DELETED);
         userRepository.save(user);

@@ -10,6 +10,10 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByGoogleSub(String googleSub);
+
+    boolean existsByUsername(String username);
+
     List<User> findByFcmTokenIsNotNull();
 
     List<User> findByRole(UserRole role);

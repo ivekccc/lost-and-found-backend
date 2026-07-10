@@ -47,4 +47,12 @@ public class AuthController {
         AuthResponseDTO response = authService.login(req);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/google")
+    @Operation(summary = "Login with Google",
+            description = "Verifies a Google ID token, creates the account on first login and returns auth tokens")
+    public ResponseEntity<AuthResponseDTO> google(@Valid @RequestBody GoogleAuthRequestDto req) {
+        AuthResponseDTO response = authService.googleLogin(req);
+        return ResponseEntity.ok(response);
+    }
 }

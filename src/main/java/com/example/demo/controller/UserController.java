@@ -53,6 +53,8 @@ public class UserController {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getPhoneNumber(),
+                user.getAvatarUrl(),
+                user.getGoogleSub() != null,
                 user.getCreatedAt(),
                 user.getRole().name()
         );
@@ -90,6 +92,8 @@ public class UserController {
                 user.getFirstName(),
                 user.getLastName(),
                 user.getPhoneNumber(),
+                user.getAvatarUrl(),
+                user.getGoogleSub() != null,
                 user.getCreatedAt(),
                 user.getRole().name()
         );
@@ -99,15 +103,15 @@ public class UserController {
 
     @DeleteMapping("/me")
     @Operation(summary = "Delete current account",
-            description = "Permanently erases the user's personal data (GDPR). Requires the current password. Own reports and their photos are deleted; claims/challenges on other users' reports are kept but anonymized.")
+            description = "Permanently erases the user's personal data (GDPR). Requires the current password, or a fresh Google ID token for Google-linked accounts. Own reports and their photos are deleted; claims/challenges on other users' reports are kept but anonymized.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Account deleted"),
-            @ApiResponse(responseCode = "401", description = "Wrong password")
+            @ApiResponse(responseCode = "401", description = "Wrong password or Google confirmation")
     })
     public ResponseEntity<Void> deleteAccount(
             @Valid @RequestBody DeleteAccountRequestDto request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        accountDeletionService.deleteOwnAccount(userDetails.getUsername(), request.getPassword());
+        accountDeletionService.deleteOwnAccount(userDetails.getUsername(), request);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.*;
+import com.example.demo.event.GoogleAvatarRequestedEvent;
 import com.example.demo.exception.InvalidTokenException;
 import com.example.demo.exception.InvalidVerificationException;
 import com.example.demo.exception.UserAlreadyExistsException;
@@ -13,7 +14,9 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.util.VerificationCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +37,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final EmailService emailService;
+    private final GoogleTokenVerifierService googleTokenVerifierService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.verification.expiry-minutes:15}")
     private int codeExpiryMinutes;
@@ -102,6 +108,66 @@ public class AuthService {
         String token = jwtUtil.generateToken(req.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(req.getEmail());
         return new AuthResponseDTO(token, refreshToken, "Login successful", user.getRole().name());
+    }
+
+    @Transactional
+    public AuthResponseDTO googleLogin(GoogleAuthRequestDto req) {
+        GoogleTokenVerifierService.GoogleIdentity identity =
+                googleTokenVerifierService.verify(req.getIdToken());
+
+        User user = userRepository.findByGoogleSub(identity.subject())
+                .or(() -> userRepository.findByEmail(identity.email()))
+                .orElse(null);
+
+        if (user == null) {
+            user = createGoogleUser(identity);
+        } else {
+            if (user.getStatus() == UserStatus.BLOCKED || user.getStatus() == UserStatus.DELETED) {
+                throw new DisabledException("User account is disabled");
+            }
+            if (user.getGoogleSub() == null) {
+                user.setGoogleSub(identity.subject());
+            }
+        }
+
+        if (user.getAvatarUrl() == null && identity.pictureUrl() != null) {
+            eventPublisher.publishEvent(
+                    new GoogleAvatarRequestedEvent(this, user.getId(), identity.pictureUrl()));
+        }
+
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+        return new AuthResponseDTO(token, refreshToken, "Login successful", user.getRole().name());
+    }
+
+    private User createGoogleUser(GoogleTokenVerifierService.GoogleIdentity identity) {
+        User user = new User();
+        user.setEmail(identity.email());
+        user.setUsername(generateUniqueUsername(identity.email()));
+        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setFirstName(identity.firstName());
+        user.setLastName(identity.lastName());
+        user.setGoogleSub(identity.subject());
+        user.setStatus(UserStatus.ACTIVE);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setRole(UserRole.USER);
+        return userRepository.save(user);
+    }
+
+    private String generateUniqueUsername(String email) {
+        String base = email.substring(0, email.indexOf('@')).replaceAll("[^a-zA-Z0-9._-]", "");
+        if (base.isBlank()) {
+            base = "user";
+        }
+        if (base.length() > 40) {
+            base = base.substring(0, 40);
+        }
+        String candidate = base;
+        int suffix = 1;
+        while (userRepository.existsByUsername(candidate)) {
+            candidate = base + suffix++;
+        }
+        return candidate;
     }
 
     public RefreshTokenResponseDTO refreshToken(RefreshTokenRequestDTO req) {

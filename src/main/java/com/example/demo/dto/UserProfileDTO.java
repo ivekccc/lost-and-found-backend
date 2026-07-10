@@ -30,6 +30,11 @@ public class UserProfileDTO {
 
     private String phoneNumber;
 
+    private String avatarUrl;
+
+    @NotNull
+    private Boolean googleLinked;
+
     @NotNull
     private LocalDateTime createdAt;
 

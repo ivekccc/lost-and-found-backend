@@ -43,6 +43,15 @@ public class User {
     @Column(name = "fcm_token")
     private String fcmToken;
 
+    @Column(name = "google_sub", length = 64, unique = true)
+    private String googleSub;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
+    @Column(name = "avatar_public_id")
+    private String avatarPublicId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
