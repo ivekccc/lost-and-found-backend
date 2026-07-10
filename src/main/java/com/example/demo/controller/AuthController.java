@@ -35,6 +35,15 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/resend")
+    @Operation(summary = "Resend verification code",
+            description = "Generates a new code for a pending registration and emails it again; throttled to one request per minute")
+    @ApiResponse(responseCode = "204", description = "Verification code sent successfully")
+    public ResponseEntity<Void> resend(@Valid @RequestBody ResendCodeRequestDto req) {
+        authService.resendCode(req);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/refresh")
     @Operation(summary = "Refresh token", description = "Returns new access and refresh tokens")
     public ResponseEntity<RefreshTokenResponseDTO> refresh(@RequestBody RefreshTokenRequestDTO req) {

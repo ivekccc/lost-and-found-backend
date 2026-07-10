@@ -4,6 +4,7 @@ import com.example.demo.dto.*;
 import com.example.demo.event.GoogleAvatarRequestedEvent;
 import com.example.demo.exception.InvalidTokenException;
 import com.example.demo.exception.InvalidVerificationException;
+import com.example.demo.exception.RateLimitExceededException;
 import com.example.demo.exception.UserAlreadyExistsException;
 import com.example.demo.model.PreRegistration;
 import com.example.demo.model.User;
@@ -24,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -39,6 +41,8 @@ public class AuthService {
     private final EmailService emailService;
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ApplicationEventPublisher eventPublisher;
+
+    private static final int RESEND_COOLDOWN_SECONDS = 60;
 
     @Value("${app.verification.expiry-minutes:15}")
     private int codeExpiryMinutes;
@@ -66,6 +70,29 @@ public class AuthService {
         preRegistrationRepository.save(preReg);
 
         emailService.sendVerificationEmail(req.getEmail(), code);
+    }
+
+    @Transactional
+    public void resendCode(ResendCodeRequestDto req) {
+        PreRegistration preReg = preRegistrationRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new InvalidVerificationException(
+                        "No pending registration for this email"));
+
+        LocalDateTime sentAt = preReg.getExpiresAt().minusMinutes(codeExpiryMinutes);
+        LocalDateTime retryAt = sentAt.plusSeconds(RESEND_COOLDOWN_SECONDS);
+        LocalDateTime now = LocalDateTime.now();
+        if (retryAt.isAfter(now)) {
+            throw new RateLimitExceededException(
+                    "Please wait a minute before requesting a new code",
+                    Duration.between(now, retryAt).toSeconds());
+        }
+
+        String code = VerificationCodeGenerator.generateVerificationCode();
+        preReg.setVerificationCode(code);
+        preReg.setExpiresAt(LocalDateTime.now().plusMinutes(codeExpiryMinutes));
+        preRegistrationRepository.save(preReg);
+
+        emailService.sendVerificationEmail(preReg.getEmail(), code);
     }
 
     @Transactional
