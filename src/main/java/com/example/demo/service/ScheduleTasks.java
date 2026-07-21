@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.model.Notification;
 import com.example.demo.model.PushStatus;
 import com.example.demo.repository.NotificationRepository;
+import com.example.demo.repository.PasswordResetRepository;
 import com.example.demo.repository.PreRegistrationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.util.Map;
 public class ScheduleTasks {
 
     private final PreRegistrationRepository preRegistrationRepository;
+    private final PasswordResetRepository passwordResetRepository;
     private final NotificationRepository notificationRepository;
     private final FcmPushSender fcmPushSender;
 
@@ -30,10 +32,15 @@ public class ScheduleTasks {
     @Scheduled(fixedRateString = "${app.cleanup.interval-ms:3600000}")
     @Transactional
     public void cleanupExpiredPreRegistrations() {
-        int deleted = preRegistrationRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        int deletedPreRegistrations = preRegistrationRepository.deleteByExpiresAtBefore(now);
+        int deletedPasswordResets = passwordResetRepository.deleteByExpiresAtBefore(now);
 
-        if (deleted > 0) {
-            log.info("Cleaned up {} expired pre-registrations", deleted);
+        if (deletedPreRegistrations > 0) {
+            log.info("Cleaned up {} expired pre-registrations", deletedPreRegistrations);
+        }
+        if (deletedPasswordResets > 0) {
+            log.info("Cleaned up {} expired password resets", deletedPasswordResets);
         }
     }
 

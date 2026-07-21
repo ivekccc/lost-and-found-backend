@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.ResponseEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -41,6 +42,27 @@ public class AuthController {
     @ApiResponse(responseCode = "204", description = "Verification code sent successfully")
     public ResponseEntity<Void> resend(@Valid @RequestBody ResendCodeRequestDto req) {
         authService.resendCode(req);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Request a password reset code",
+            description = "Emails a reset code if the account exists; always returns 204 to avoid revealing whether an email is registered. Throttled to one request per minute.")
+    @ApiResponse(responseCode = "204", description = "Request accepted")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto req) {
+        authService.forgotPassword(req);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password with code",
+            description = "Sets a new password when the emailed code is valid and unexpired")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Password updated"),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired code")
+    })
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequestDto req) {
+        authService.resetPassword(req);
         return ResponseEntity.noContent().build();
     }
 

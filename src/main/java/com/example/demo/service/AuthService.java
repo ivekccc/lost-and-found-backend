@@ -6,10 +6,12 @@ import com.example.demo.exception.InvalidTokenException;
 import com.example.demo.exception.InvalidVerificationException;
 import com.example.demo.exception.RateLimitExceededException;
 import com.example.demo.exception.UserAlreadyExistsException;
+import com.example.demo.model.PasswordReset;
 import com.example.demo.model.PreRegistration;
 import com.example.demo.model.User;
 import com.example.demo.model.UserRole;
 import com.example.demo.model.UserStatus;
+import com.example.demo.repository.PasswordResetRepository;
 import com.example.demo.repository.PreRegistrationRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.util.VerificationCodeGenerator;
@@ -35,6 +37,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PreRegistrationRepository preRegistrationRepository;
+    private final PasswordResetRepository passwordResetRepository;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
@@ -195,6 +198,60 @@ public class AuthService {
             candidate = base + suffix++;
         }
         return candidate;
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequestDto req) {
+        User user = userRepository.findByEmail(req.getEmail()).orElse(null);
+
+        // Always succeed to the caller: revealing whether an email is registered would let
+        // attackers enumerate accounts. We skip sending only for accounts that cannot log in
+        // anyway (blocked or deleted) — partially blocked users can still sign in, so they may reset.
+        if (user == null
+                || user.getStatus() == UserStatus.BLOCKED
+                || user.getStatus() == UserStatus.DELETED) {
+            return;
+        }
+
+        PasswordReset reset = passwordResetRepository.findByEmail(req.getEmail()).orElse(null);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (reset != null && reset.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
+            throw new RateLimitExceededException(
+                    "Please wait a minute before requesting a new code",
+                    Duration.between(now, reset.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS)).toSeconds());
+        }
+
+        String code = VerificationCodeGenerator.generateVerificationCode();
+        if (reset == null) {
+            reset = new PasswordReset();
+            reset.setEmail(req.getEmail());
+        }
+        reset.setCode(code);
+        reset.setCreatedAt(now);
+        reset.setExpiresAt(now.plusMinutes(codeExpiryMinutes));
+        passwordResetRepository.save(reset);
+
+        emailService.sendPasswordResetEmail(req.getEmail(), code);
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequestDto req) {
+        PasswordReset reset = passwordResetRepository.findByEmail(req.getEmail())
+                .filter(r -> r.getCode().equals(req.getCode()))
+                .orElseThrow(() -> new InvalidVerificationException("Invalid or expired code"));
+
+        if (reset.getExpiresAt().isBefore(LocalDateTime.now())) {
+            passwordResetRepository.delete(reset);
+            throw new InvalidVerificationException("Invalid or expired code");
+        }
+
+        User user = userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new InvalidVerificationException("Invalid or expired code"));
+
+        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        userRepository.save(user);
+        passwordResetRepository.delete(reset);
     }
 
     public RefreshTokenResponseDTO refreshToken(RefreshTokenRequestDTO req) {

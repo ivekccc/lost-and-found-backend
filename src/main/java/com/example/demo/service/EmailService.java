@@ -46,4 +46,28 @@ public class EmailService {
         context.setVariable("codeChars", code.chars().mapToObj(c -> String.valueOf((char) c)).toList());
         return templateEngine.process("email/verification", context);
     }
+
+    public void sendPasswordResetEmail(String to, String code) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromMail);
+            helper.setTo(to);
+            helper.setSubject("Lost & Found - Password Reset");
+            helper.setText(buildPasswordResetEmailHtml(code), true);
+
+            mailSender.send(message);
+            log.info("Password reset email sent to: {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send password reset email to: {}", to, e);
+            throw new EmailSendException("Failed to send password reset email. Please try again later.");
+        }
+    }
+
+    private String buildPasswordResetEmailHtml(String code) {
+        Context context = new Context();
+        context.setVariable("codeChars", code.chars().mapToObj(c -> String.valueOf((char) c)).toList());
+        return templateEngine.process("email/password-reset", context);
+    }
 }
