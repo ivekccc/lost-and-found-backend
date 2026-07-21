@@ -19,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,10 @@ public class ReportService {
     // A listing is publicly marked "under review" only after enough distinct users report it,
     // so a single (possibly malicious) report can't taint someone else's listing.
     private static final long REPORT_VISIBILITY_THRESHOLD = 5;
+
+    private static final int NEARBY_RESULT_LIMIT = 20;
+
+    private static final double NEARBY_MAX_RADIUS_KM = 50;
 
     private final ReportRepository reportRepository;
     private final ReportCategoryRepository reportCategoryRepository;
@@ -116,6 +121,70 @@ public class ReportService {
         return reports.stream()
                 .map(report -> toListDTO(report, currentUser.getId(), reportedIds))
                 .toList();
+    }
+
+    public List<NearbyReportDTO> getNearbyReports(double latitude, double longitude,
+                                                  double radiusKm, String userEmail) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        double effectiveRadiusKm = Math.min(Math.max(radiusKm, 0), NEARBY_MAX_RADIUS_KM);
+
+        Specification<Report> spec = Specification.allOf(
+                ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.statusNot(ReportStatus.FLAGGED),
+                ReportSpecifications.userIdNotEquals(currentUser.getId()),
+                ReportSpecifications.hasType(ReportType.FOUND)
+        );
+
+        List<Report> reports = reportRepository.findAll(spec);
+        Set<Long> reportedIds = findReportedIds(reports);
+
+        record ReportDistance(Report report, double distanceKm) {}
+
+        return reports.stream()
+                .filter(report -> report.getLocation() != null)
+                .map(report -> new ReportDistance(report, haversineKm(
+                        latitude, longitude,
+                        report.getLocation().getLatitude().doubleValue(),
+                        report.getLocation().getLongitude().doubleValue())))
+                .filter(rd -> rd.distanceKm() <= effectiveRadiusKm)
+                .sorted(Comparator.comparingDouble(ReportDistance::distanceKm))
+                .limit(NEARBY_RESULT_LIMIT)
+                .map(rd -> toNearbyDTO(rd.report(), currentUser.getId(), reportedIds, rd.distanceKm()))
+                .toList();
+    }
+
+    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double earthRadiusKm = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+    }
+
+    private NearbyReportDTO toNearbyDTO(Report report, Long viewerId, Set<Long> reportedIds,
+                                        double distanceKm) {
+        String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewerId)
+                ? null
+                : report.getImages().getFirst().getImageUrl();
+
+        return new NearbyReportDTO(
+                report.getId(),
+                report.getTitle(),
+                report.getType(),
+                report.getCategory().getName(),
+                report.getCategory().getImageUrl(),
+                report.getStatus(),
+                LocationDTO.fromEntity(report.getLocation()),
+                report.getCreatedAt(),
+                thumbnailUrl,
+                reportedIds.contains(report.getId()),
+                Math.round(distanceKm * 10.0) / 10.0
+        );
     }
 
     public List<ReportListDTO> getMyReports(String userEmail) {

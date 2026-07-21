@@ -7,8 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -41,6 +43,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponseDTO(message, HttpStatus.BAD_REQUEST.value()));
     }
+    @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponseDTO> handleBadRequestParams(Exception ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponseDTO("Invalid or missing request parameter", HttpStatus.BAD_REQUEST.value()));
+    }
+
     @ExceptionHandler(InvalidVerificationException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidVerification(InvalidVerificationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

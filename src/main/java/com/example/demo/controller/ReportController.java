@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.CreateReportRequestDto;
+import com.example.demo.dto.NearbyReportDTO;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.model.ReportType;
@@ -47,6 +48,19 @@ public class ReportController {
     @Operation(summary = "Get my reports", description = "Returns the current user's own reports (all statuses except deleted)")
     public ResponseEntity<List<ReportListDTO>> getMyReports(@AuthenticationPrincipal UserDetails userDetails) {
         List<ReportListDTO> reports = reportService.getMyReports(userDetails.getUsername());
+        return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/nearby")
+    @Operation(summary = "Get found reports nearby",
+            description = "Returns FOUND reports from other users within radiusKm of the given coordinates, sorted by distance ascending, each with its distance in km")
+    public ResponseEntity<List<NearbyReportDTO>> getNearbyReports(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "5") double radiusKm,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<NearbyReportDTO> reports = reportService.getNearbyReports(
+                latitude, longitude, radiusKm, userDetails.getUsername());
         return ResponseEntity.ok(reports);
     }
 
