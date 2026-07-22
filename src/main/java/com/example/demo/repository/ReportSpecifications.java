@@ -24,6 +24,13 @@ public final class ReportSpecifications {
         return (root, query, builder) -> builder.notEqual(root.get("status"), status);
     }
 
+    public static Specification<Report> hasStatus(ReportStatus status) {
+        if (status == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, builder) -> builder.equal(root.get("status"), status);
+    }
+
     public static Specification<Report> userIdEquals(Long userId) {
         if (userId == null) {
             return Specification.unrestricted();

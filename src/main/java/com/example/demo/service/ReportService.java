@@ -109,8 +109,7 @@ public class ReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Specification<Report> spec = Specification.allOf(
-                ReportSpecifications.statusNot(ReportStatus.DELETED),
-                ReportSpecifications.statusNot(ReportStatus.FLAGGED),
+                ReportSpecifications.hasStatus(ReportStatus.ACTIVE),
                 ReportSpecifications.userIdNotEquals(currentUser.getId()),
                 ReportSpecifications.hasType(type),
                 ReportSpecifications.titleContains(search)
@@ -131,8 +130,7 @@ public class ReportService {
         double effectiveRadiusKm = Math.min(Math.max(radiusKm, 0), NEARBY_MAX_RADIUS_KM);
 
         Specification<Report> spec = Specification.allOf(
-                ReportSpecifications.statusNot(ReportStatus.DELETED),
-                ReportSpecifications.statusNot(ReportStatus.FLAGGED),
+                ReportSpecifications.hasStatus(ReportStatus.ACTIVE),
                 ReportSpecifications.userIdNotEquals(currentUser.getId()),
                 ReportSpecifications.hasType(ReportType.FOUND)
         );
