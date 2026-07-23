@@ -40,14 +40,14 @@ public class NotificationEventListener {
             return;
         }
 
-        Map<String, String> data = null;
-
-        if (notification.getDataJson() != null) {
-            data = Map.of(
-                    "type", notification.getType().name(),
-                    "payload", notification.getDataJson()
-            );
-        }
+        Map<String, String> data = notification.getDataJson() != null
+                ? Map.of(
+                        "type", notification.getType().name(),
+                        "notificationId", notification.getId().toString(),
+                        "payload", notification.getDataJson())
+                : Map.of(
+                        "type", notification.getType().name(),
+                        "notificationId", notification.getId().toString());
 
         FcmPushSender.SendResult result = fcmPushSender.sendToToken(
                 fcmToken,

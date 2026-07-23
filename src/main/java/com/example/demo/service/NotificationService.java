@@ -18,6 +18,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -61,12 +63,16 @@ public class NotificationService {
 
 
     @Transactional(readOnly = true)
-    public Page<NotificationDTO> getNotifications(String email, Pageable pageable) {
+    public Page<NotificationDTO> getNotifications(String email, List<NotificationType> types, Pageable pageable) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(),
-                        pageable)
+        if (types == null || types.isEmpty()) {
+            return notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
+                    .map(this::toDTO);
+        }
+
+        return notificationRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(user.getId(), types, pageable)
                 .map(this::toDTO);
     }
 

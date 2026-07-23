@@ -14,14 +14,17 @@ import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.ReportSpecifications;
 import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,7 +48,11 @@ public class ReportService {
     private final ChallengeService challengeService;
     private final ChallengeRepository challengeRepository;
     private final AbuseReportRepository abuseReportRepository;
+    private final ReportMatchService reportMatchService;
     private final ApplicationEventPublisher eventPublisher;
+
+    @Value("${app.reports.default-ttl-days:60}")
+    private int defaultTtlDays;
 
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
@@ -66,6 +73,7 @@ public class ReportService {
         report.setContactPhone(createReportRequestDto.getContactPhone());
         report.setUser(user);
         report.setStatus(ReportStatus.ACTIVE);
+        report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
 
         if (createReportRequestDto.getLocation() != null) {
             Location location = findOrCreateLocation(createReportRequestDto.getLocation());
@@ -118,7 +126,7 @@ public class ReportService {
         List<Report> reports = reportRepository.findAll(spec);
         Set<Long> reportedIds = findReportedIds(reports);
         return reports.stream()
-                .map(report -> toListDTO(report, currentUser.getId(), reportedIds))
+                .map(report -> toListDTO(report, currentUser.getId(), reportedIds, null))
                 .toList();
     }
 
@@ -196,8 +204,11 @@ public class ReportService {
 
         List<Report> reports = reportRepository.findAll(spec);
         Set<Long> reportedIds = findReportedIds(reports);
+        Map<Long, Long> matchCounts = reportMatchService.getMatchCounts(
+                reports.stream().map(Report::getId).toList());
         return reports.stream()
-                .map(report -> toListDTO(report, currentUser.getId(), reportedIds))
+                .map(report -> toListDTO(report, currentUser.getId(), reportedIds,
+                        matchCounts.getOrDefault(report.getId(), 0L)))
                 .toList();
     }
 
@@ -238,7 +249,7 @@ public class ReportService {
                 && !report.getUser().getId().equals(viewerId);
     }
 
-    private ReportListDTO toListDTO(Report report, Long viewerId, Set<Long> reportedIds) {
+    private ReportListDTO toListDTO(Report report, Long viewerId, Set<Long> reportedIds, Long matchCount) {
         String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewerId)
                 ? null
                 : report.getImages().getFirst().getImageUrl();
@@ -253,7 +264,8 @@ public class ReportService {
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),
                 thumbnailUrl,
-                reportedIds.contains(report.getId())
+                reportedIds.contains(report.getId()),
+                matchCount
         );
     }
 

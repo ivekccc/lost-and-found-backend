@@ -1,10 +1,12 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.CreateReportRequestDto;
+import com.example.demo.dto.MatchDto;
 import com.example.demo.dto.NearbyReportDTO;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.model.ReportType;
+import com.example.demo.service.ReportMatchService;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -24,6 +26,7 @@ import java.util.List;
 @Tag(name = "Reports", description = "Report management endpoints")
 public class ReportController {
     private final ReportService reportService;
+    private final ReportMatchService reportMatchService;
 
     @PostMapping
     @Operation(summary = "Create report", description = "Creates a new lost or found report")
@@ -62,6 +65,16 @@ public class ReportController {
         List<NearbyReportDTO> reports = reportService.getNearbyReports(
                 latitude, longitude, radiusKm, userDetails.getUsername());
         return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/{id}/matches")
+    @Operation(summary = "Get matches for my report",
+            description = "Returns suggested matches for the given report, sorted by score descending. Only the report owner can access them.")
+    public ResponseEntity<List<MatchDto>> getReportMatches(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<MatchDto> matches = reportMatchService.getMatchesForReport(id, userDetails.getUsername());
+        return ResponseEntity.ok(matches);
     }
 
     @GetMapping("/{id}")

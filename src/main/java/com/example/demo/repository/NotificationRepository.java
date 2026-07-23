@@ -1,6 +1,7 @@
 package com.example.demo.repository;
 
 import com.example.demo.model.Notification;
+import com.example.demo.model.NotificationType;
 import com.example.demo.model.PushStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,8 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     Page<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    Page<Notification> findByUserIdAndTypeInOrderByCreatedAtDesc(Long userId, List<NotificationType> types, Pageable pageable);
 
     long countByUserIdAndIsReadFalse(Long userId);
 

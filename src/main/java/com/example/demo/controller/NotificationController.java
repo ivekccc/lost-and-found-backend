@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.FcmTokenRequestDTO;
 import com.example.demo.dto.NotificationDTO;
 import com.example.demo.dto.UnreadCountDTO;
+import com.example.demo.model.NotificationType;
 import com.example.demo.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +17,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/notifications")
 @RequiredArgsConstructor
@@ -25,14 +28,16 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    @Operation(summary = "Get notifications (paginated)")
+    @Operation(summary = "Get notifications (paginated)",
+            description = "Optionally filtered by one or more notification types")
     public ResponseEntity<Page<NotificationDTO>> getNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) List<NotificationType> types,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        return ResponseEntity.ok(notificationService.getNotifications(userDetails.getUsername(), pageable));
+        return ResponseEntity.ok(notificationService.getNotifications(userDetails.getUsername(), types, pageable));
     }
 
     @GetMapping("/unread-count")

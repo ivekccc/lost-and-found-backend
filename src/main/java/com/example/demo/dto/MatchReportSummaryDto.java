@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ReportListDTO {
+public class MatchReportSummaryDto {
 
     @NotNull
     private Long id;
@@ -39,9 +39,4 @@ public class ReportListDTO {
     private LocalDateTime createdAt;
 
     private String thumbnailUrl;
-
-    @NotNull
-    private Boolean reported;
-
-    private Long matchCount;
 }
