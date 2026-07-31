@@ -40,11 +40,27 @@
 			<artifactId>jaxb-api</artifactId>
 			<version>2.3.1</version>
 		</dependency>
-		<!-- JWT library for token generation and parsing -->
+		<!-- JWT library for token generation and parsing.
+		     0.12.x je podeljen na tri artefakta: api je jedini na compile scope-u, impl i
+		     jackson se ucitavaju u runtime-u. Prelazak sa 0.9.1 (2018) donosi i proveru
+		     jacine kljuca — HS256 trazi najmanje 32 bajta, sto je stara verzija cutke
+		     prihvatala i kad nije bilo ispunjeno. -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
-			<artifactId>jjwt</artifactId>
-			<version>0.9.1</version>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.6</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.12.6</version>
+			<scope>runtime</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
