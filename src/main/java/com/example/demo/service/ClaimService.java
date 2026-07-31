@@ -296,6 +296,59 @@ public class ClaimService {
         }
     }
 
+    /**
+     * Podnosilac povlaci svoj claim koji jos ceka odluku.
+     *
+     * Do sada se claim nije mogao povuci: ostajao je PENDING dok druga strana ne odluci, a
+     * uz to je zauzimao slot u parcijalnom unique indeksu uq_claims_pending_per_claimant —
+     * pa korisnik koji je pogresio nije mogao ni da podnese ispravljen claim.
+     *
+     * Pokusaj se NE vraca: countByChallengeIdAndClaimantId broji sve claim-ove bez obzira na
+     * status, pa povlacenje oslobada slot ali ne obnavlja kvotu. Inace bi se ciklusom
+     * podnesi-povuci limit od dva pokusaja mogao zaobici.
+     *
+     * Autor challenge-a se ne obavestava — nema tipa notifikacije za povlacenje, a
+     * CLAIM_DECLINED bi bio netacan jer odluku nije doneo on.
+     */
+    @Transactional
+    public ClaimDetailsDto withdrawClaim(Long claimId, String userEmail) {
+        User user = findUser(userEmail);
+
+        // Isto zakljucavanje kao u approveClaim: povlacenje i odluka autora su istovremene
+        // promene stanja istog claim-a i moraju da se serijalizuju.
+        lockReportOfClaim(claimId);
+
+        Claim claim = findClaim(claimId);
+
+        if (!claim.getClaimant().getId().equals(user.getId())) {
+            throw new ResourceNotFoundException("Claim with id " + claimId + " not found");
+        }
+        requirePending(claim);
+
+        claim.setStatus(ClaimStatus.WITHDRAWN);
+        claim.setDecidedAt(LocalDateTime.now());
+
+        return toDetailsDto(claim);
+    }
+
+    /**
+     * Odbija jedan claim bez provere ovlascenja, uz notifikaciju podnosiocu.
+     *
+     * Namenjeno iskljucivo administrativnoj blokadi naloga, gde odluku ne donosi autor
+     * challenge-a nego sistem. Zato NE prolazi kroz requireChallengeAuthor — ali prolazi kroz
+     * publishDecision, pa podnosilac dobije CLAIM_DECLINED kao i kod svake druge odluke.
+     */
+    @Transactional
+    public void declineClaimOnBlock(Claim claim) {
+        if (claim.getStatus() != ClaimStatus.PENDING) {
+            return;
+        }
+
+        claim.setStatus(ClaimStatus.DECLINED);
+        claim.setDecidedAt(LocalDateTime.now());
+        publishDecision(claim, false);
+    }
+
     private void publishDecision(Claim claim, boolean approved) {
         Report report = claim.getChallenge().getReport();
         eventPublisher.publishEvent(new ClaimDecidedEvent(

@@ -32,6 +32,7 @@ public class AdminUserService {
     private final ClaimRepository claimRepository;
     private final AccountDeletionService accountDeletionService;
     private final AbuseReportService abuseReportService;
+    private final ClaimService claimService;
     private final NotificationService notificationService;
 
     public void deleteUser(Long id) {
@@ -122,14 +123,24 @@ public class AdminUserService {
                 report.setHiddenByUserBlock(true);
                 reportRepository.save(report);
             }
+
+            // Blokiran korisnik je disabled u MyUserDetailsService, pa vise NIKAD ne moze da
+            // odluci o claim-ovima na svojim oglasima. Bez ovoga bi tudji claim ostao PENDING
+            // zauvek: podnosiocu bi trajno zauzimao jedan od dva pokusaja i slot u parcijalnom
+            // unique indeksu, a on bi bez ijednog objasnjenja gledao "Pending review".
+            claimService.declinePendingClaimsForReport(report.getId());
         }
     }
 
+    /**
+     * Odbijanje ide kroz ClaimService da bi svaki podnosilac dobio CLAIM_DECLINED notifikaciju.
+     * Ranije se status upisivao direktno na entitetu, bez ClaimDecidedEvent — pa se claim
+     * korisniku tiho menjao pod rukom.
+     */
     private void declineOwnPendingClaims(Long userId) {
         for (Claim claim : claimRepository.findByClaimantIdOrderBySubmittedAtDesc(userId)) {
             if (claim.getStatus() == ClaimStatus.PENDING) {
-                claim.setStatus(ClaimStatus.DECLINED);
-                claim.setDecidedAt(LocalDateTime.now());
+                claimService.declineClaimOnBlock(claim);
             }
         }
     }

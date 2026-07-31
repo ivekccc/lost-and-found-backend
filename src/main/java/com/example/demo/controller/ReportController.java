@@ -96,6 +96,26 @@ public class ReportController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete my report",
+            description = "Removes the caller's own report from the platform. The row is kept so that "
+                    + "verification history belonging to the other party stays intact, but the report is "
+                    + "no longer visible anywhere, including to its owner. Any claim still awaiting a "
+                    + "decision is declined and its claimant notified. Photos are not removed from storage "
+                    + "here; deleting the account does that. Only the report owner may call this; another "
+                    + "user's report is reported as not found.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Report deleted"),
+            @ApiResponse(responseCode = "400", description = "Report is already deleted"),
+            @ApiResponse(responseCode = "404", description = "Report not found or not owned by the caller")
+    })
+    public ResponseEntity<Void> deleteReport(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        reportService.deleteReport(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/close")
     @Operation(summary = "Close my report",
             description = "Marks the caller's own active report as matched: it stops appearing in search, "

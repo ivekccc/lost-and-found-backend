@@ -88,6 +88,25 @@ public class ClaimController {
         return ResponseEntity.ok(claimService.getClaimDetails(id, userDetails.getUsername()));
     }
 
+    @PostMapping("/claims/{id}/withdraw")
+    @Operation(summary = "Withdraw my claim",
+            description = "Takes back a claim that is still awaiting a decision. Only the claimant may "
+                    + "withdraw, and only while the claim is pending. Withdrawing frees the pending slot "
+                    + "so a corrected claim can be submitted, but it does not restore the used attempt.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Claim withdrawn",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ClaimDetailsDto.class))),
+            @ApiResponse(responseCode = "400", description = "Claim has already been decided"),
+            @ApiResponse(responseCode = "404", description = "Claim not found or not submitted by the caller")
+    })
+    public ResponseEntity<ClaimDetailsDto> withdrawClaim(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        return ResponseEntity.ok(claimService.withdrawClaim(id, userDetails.getUsername()));
+    }
+
     @PostMapping("/claims/{id}/approve")
     @Operation(summary = "Approve claim",
             description = "Confirms ownership: reveals contact both ways, marks the report as MATCHED and auto-declines other pending claims")

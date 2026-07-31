@@ -195,6 +195,42 @@ public class ReportService {
     }
 
     /**
+     * Vlasnik uklanja svoj oglas — meko brisanje, status DELETED.
+     *
+     * Do sada ta vrednost nije bila dostizna: osam mesta u kodu filtrira {@code status !=
+     * DELETED} nad statusom koji nista nije postavljalo, a jedini nacin da korisnik ukloni
+     * svoj oglas bio je brisanje CELOG naloga. Za proizvod koji se poziva na GDPR to je
+     * neprihvatljivo usko.
+     *
+     * Meko, a ne tvrdo brisanje: red ostaje zbog referencijalnog integriteta (challenge-i,
+     * claim-ovi i njihovi odgovori pokazuju na oglas, a ti FK-evi nemaju ON DELETE CASCADE) i
+     * zbog istorije verifikacija koja pripada i drugoj strani. Slike na Cloudinary-ju se ne
+     * diraju — cisti ih brisanje naloga; tvrdo brisanje ovde bi meko brisanje ucinilo
+     * nepovratnim, a povratka jos nema.
+     *
+     * Dozvoljeno je i kad postoji odobren claim: kontakt je vec otkriven, pa brisanje nista
+     * ne povlaci nazad.
+     */
+    @Transactional
+    public void deleteReport(Long id, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Report report = ownedReport(id, user);
+
+        if (report.getStatus() == ReportStatus.DELETED) {
+            throw new IllegalArgumentException("Report is already deleted");
+        }
+
+        report.setStatus(ReportStatus.DELETED);
+        reportRepository.save(report);
+
+        // Isti razlog kao kod zatvaranja: obrisan oglas vise ne prima odluke o claim-ovima,
+        // pa bi svaki koji ceka ostao PENDING zauvek.
+        claimService.declinePendingClaimsForReport(report.getId());
+    }
+
+    /**
      * Oglas u vlasnistvu pozivaoca, ili 404. Tudji oglas se NE razlikuje od nepostojeceg —
      * ista konvencija kao ReportMatchService.getMatchesForReport, da id-jevi ne cure.
      */
