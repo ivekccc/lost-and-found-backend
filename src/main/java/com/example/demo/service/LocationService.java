@@ -11,6 +11,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -19,6 +21,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class LocationService {
+
+    private static final String BELGRADE_VIEWBOX = "20.22,44.93,20.65,44.68";
+
     @Value("${locationiq.api-key}")
     private String apiKey;
 
@@ -33,9 +38,10 @@ public class LocationService {
     public List<AutoCompleteSuggestionDTO> getAutoCompleteSuggestions(String query) {
         String url = baseUrl + "/autocomplete"
                 + "?key=" + apiKey
-                + "&q=" + query
+                + "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
                 + "&countrycodes=" + defaultCountry
-                + "&viewbox=20.22,44.93,20.65,44.68"
+                + "&viewbox=" + BELGRADE_VIEWBOX
+                + "&bounded=1"
                 + "&limit=5";
         try {
             LocationIqResult[] results = restTemplate.getForObject(url, LocationIqResult[].class);

@@ -4,15 +4,18 @@ import com.example.demo.dto.LocationDTO;
 import com.example.demo.dto.MatchDto;
 import com.example.demo.dto.MatchReportSummaryDto;
 import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.model.DistanceBand;
 import com.example.demo.model.Report;
 import com.example.demo.model.ReportMatch;
 import com.example.demo.model.ReportMatchStatus;
 import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
 import com.example.demo.model.User;
+import com.example.demo.model.Zone;
 import com.example.demo.repository.ReportMatchRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -116,12 +119,9 @@ public class ReportMatchService {
 
         return new MatchDto(
                 match.getId(),
-                match.getScore(),
-                match.getDistanceKm().doubleValue(),
-                match.getDistanceScore(),
+                roundScoreToTens(match.getScore()),
+                zonalDistanceBand(myReport, otherReport),
                 match.getTimeGapDays(),
-                match.getTimeScore(),
-                match.getTextScore(),
                 match.getStatus(),
                 match.getCreatedAt(),
                 toSummary(myReport, viewerId),
@@ -129,12 +129,51 @@ public class ReportMatchService {
         );
     }
 
+    
+    private Integer roundScoreToTens(Integer score) {
+        return score == null ? null : (int) (Math.round(score / 10.0) * 10);
+    }
+
+    /**
+     * Opseg rastojanja izmedju centroida zona dva oglasa, ili null kad su oba oglasa u
+     * ISTOJ zoni (tada "0 km" korisnik cita kao gresku — UI prikazuje samo naziv zone).
+     *
+     * Tacna distanca se NE izlaze klijentu: uz par oglasa na lokacijama koje korisnik sam
+     * bira, ona bi trilateracijom odala tacnu lokaciju tudjeg oglasa. Tacna vrednost ostaje
+     * u bazi (report_matches.distance_km) i koristi se samo za scoring i admin pregled.
+     *
+     * Opseg umesto broja: dok je zona bila cela opstina, "4.2 km" je bilo bezobrazno grubo
+     * pa bezopasno. Sa zonama od oko 1 km2 vrednost "0.3 km" ostaje artefakt centroida sa
+     * greskom reda pola kilometra, ali pocinje da IZGLEDA kao precizan podatak. To je
+     * ispravka iskrenosti prikaza, ne mera zastite — naziv zone se ionako prikazuje, pa je
+     * centroid napadacu poznat i bez distance.
+     */
+    private DistanceBand zonalDistanceBand(Report first, Report second) {
+        Zone firstZone = first.getLocation() != null ? first.getLocation().getZone() : null;
+        Zone secondZone = second.getLocation() != null ? second.getLocation().getZone() : null;
+
+        if (firstZone == null || secondZone == null || firstZone.getId().equals(secondZone.getId())) {
+            return null;
+        }
+
+        return DistanceBand.of(GeoUtils.haversineKm(
+                firstZone.getCentroidLatitude().doubleValue(),
+                firstZone.getCentroidLongitude().doubleValue(),
+                secondZone.getCentroidLatitude().doubleValue(),
+                secondZone.getCentroidLongitude().doubleValue()));
+    }
+
     private MatchReportSummaryDto toSummary(Report report, Long viewerId) {
-        boolean hidesImages = report.getType() == ReportType.FOUND
-                && !report.getUser().getId().equals(viewerId);
+        boolean isOwnReport = report.getUser().getId().equals(viewerId);
+        boolean hidesImages = report.getType() == ReportType.FOUND && !isOwnReport;
         String thumbnailUrl = report.getImages().isEmpty() || hidesImages
                 ? null
                 : report.getImages().getFirst().getImageUrl();
+
+        // Matchevi su pre-verifikacioni: svoj oglas se vidi tacno, tudji samo zonalno.
+        LocationDTO location = isOwnReport
+                ? LocationDTO.fromEntity(report.getLocation())
+                : LocationDTO.zonalFromEntity(report.getLocation());
 
         return new MatchReportSummaryDto(
                 report.getId(),
@@ -143,7 +182,7 @@ public class ReportMatchService {
                 report.getCategory().getName(),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
-                LocationDTO.fromEntity(report.getLocation()),
+                location,
                 report.getCreatedAt(),
                 thumbnailUrl
         );

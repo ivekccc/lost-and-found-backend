@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface ReportImageRepository extends JpaRepository<ReportImage, Long> {
     List<ReportImage> findByReportId(Long reportId);
+
+    boolean existsByPublicId(String publicId);
 }

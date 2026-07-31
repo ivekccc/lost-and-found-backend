@@ -1,0 +1,5 @@
+# Medjukorak generatora: sirove OSM geometrije sa LocationIQ-a (~16 MB) i staging SQL.
+# Izvedeni podaci — aplikacija ih ne cita, u repo ide samo uprosceni rezultat u
+# db/migration/V36 i V38. Lokalno vredi zadrzati: ponovno skidanje traje ~10 minuta
+# zbog LocationIQ kvota.
+cache/

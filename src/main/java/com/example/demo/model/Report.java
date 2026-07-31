@@ -58,6 +58,9 @@ public class Report {
     @Column(name = "contact_phone", length = 50)
     private String contactPhone;
 
+    @Column(name = "hidden_by_user_block", nullable = false)
+    private boolean hiddenByUserBlock;
+
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, mappedBy = "report", orphanRemoval = true)
     @OrderBy("displayOrder ASC")
     private List<ReportImage> images = new ArrayList<>();

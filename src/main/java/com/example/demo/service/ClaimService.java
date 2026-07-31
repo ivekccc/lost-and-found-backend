@@ -43,7 +43,7 @@ import java.util.Map;
 public class ClaimService {
 
     private static final int MAX_CLAIMS_PER_DAY = 5;
-    private static final int MAX_ATTEMPTS_PER_CHALLENGE = 2;
+    public static final int MAX_ATTEMPTS_PER_CHALLENGE = 2;
     private static final long DAY_IN_SECONDS = 86400;
 
     private final ClaimRepository claimRepository;
@@ -59,6 +59,10 @@ public class ClaimService {
 
         if (report.getType() == ReportType.LOST && !isOwnerOrAuthor(report, challenge, user)) {
             throw new InvalidClaimException("Only the report owner can answer this challenge");
+        }
+  
+        if (report.getStatus() != ReportStatus.ACTIVE) {
+            throw new ResourceNotFoundException("Challenge not found");
         }
 
         List<ClaimantChallengeQuestionDto> questions = challenge.getQuestions().stream()
@@ -122,6 +126,14 @@ public class ClaimService {
     private void validateLimits(Long challengeId, Long claimantId) {
         if (claimRepository.existsByChallengeIdAndClaimantIdAndStatus(challengeId, claimantId, ClaimStatus.PENDING)) {
             throw new InvalidClaimException("You already have a pending claim for this challenge");
+        }
+        // Odobren claim je do sada bio blokiran samo posredno, kroz "oglas mora biti ACTIVE"
+        // (odobravanje ga prebaci u MATCHED). Ta zastita pada cim admin uradi unflag, koji
+        // vraca oglas na ACTIVE — tada bi drugi korisnik mogao da podnese i dobije jos jedan
+        // odobren claim na istom oglasu, pa bi dvema osobama bili otkriveni kontakt i tacna
+        // lokacija. Zato se odobren claim proverava i direktno.
+        if (claimRepository.existsByChallengeIdAndClaimantIdAndStatus(challengeId, claimantId, ClaimStatus.APPROVED)) {
+            throw new InvalidClaimException("Your ownership of this item has already been confirmed");
         }
         if (claimRepository.countByChallengeIdAndClaimantId(challengeId, claimantId) >= MAX_ATTEMPTS_PER_CHALLENGE) {
             throw new InvalidClaimException("You have used all attempts for this challenge");
@@ -205,6 +217,14 @@ public class ClaimService {
         requirePending(claim);
 
         Report report = claim.getChallenge().getReport();
+
+        // Bez ove provere odobravanje zaostalog claim-a prepisuje BILO KOJI status oglasa
+        // u MATCHED — ukljucujuci FLAGGED, cime obican korisnik ponistava odluku moderacije
+        // (a admin gubi kontrolu, jer unflagReport trazi status FLAGGED), i EXPIRED, cime
+        // ozivljava istekao oglas koji sweep vise nikad nece pokupiti.
+        if (report.getStatus() != ReportStatus.ACTIVE) {
+            throw new InvalidClaimException("This report is no longer active");
+        }
 
         claim.setStatus(ClaimStatus.APPROVED);
         claim.setDecidedAt(LocalDateTime.now());

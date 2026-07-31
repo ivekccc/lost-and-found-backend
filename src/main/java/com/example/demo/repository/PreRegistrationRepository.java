@@ -13,6 +13,8 @@ public interface PreRegistrationRepository extends  JpaRepository<PreRegistratio
     Optional<PreRegistration> findByEmail(String email);
     Optional<PreRegistration> findByVerificationCode(String verificationCode);
 
+    Optional<PreRegistration> findByEmailAndVerificationCode(String email, String verificationCode);
+
     @Modifying
     @Query("DELETE FROM PreRegistration p WHERE p.email = :email")
     void deleteByEmail(String email);

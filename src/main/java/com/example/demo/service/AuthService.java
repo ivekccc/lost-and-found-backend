@@ -56,6 +56,18 @@ public class AuthService {
             throw new UserAlreadyExistsException("Email already exists");
         }
 
+        
+        preRegistrationRepository.findByEmail(req.getEmail()).ifPresent(existing -> {
+            LocalDateTime sentAt = existing.getExpiresAt().minusMinutes(codeExpiryMinutes);
+            LocalDateTime retryAt = sentAt.plusSeconds(RESEND_COOLDOWN_SECONDS);
+            LocalDateTime now = LocalDateTime.now();
+            if (retryAt.isAfter(now)) {
+                throw new RateLimitExceededException(
+                        "A verification code was just sent to this address. Please wait a minute.",
+                        Duration.between(now, retryAt).toSeconds());
+            }
+        });
+
         preRegistrationRepository.deleteByEmail(req.getEmail());
 
         String code = VerificationCodeGenerator.generateVerificationCode();
@@ -101,8 +113,9 @@ public class AuthService {
     @Transactional
     public AuthResponseDTO verifyCode(VerifyRequestDTO req) {
 
+       
         PreRegistration preReg = preRegistrationRepository
-                .findByVerificationCode(req.getCode())
+                .findByEmailAndVerificationCode(req.getEmail(), req.getCode())
                 .orElseThrow(() -> new InvalidVerificationException("Invalid verification code"));
 
         if (preReg.getExpiresAt().isBefore(LocalDateTime.now())) {

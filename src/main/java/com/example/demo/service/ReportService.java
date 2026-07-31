@@ -8,11 +8,14 @@ import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.model.*;
 import com.example.demo.repository.AbuseReportRepository;
 import com.example.demo.repository.ChallengeRepository;
+import com.example.demo.repository.ClaimRepository;
 import com.example.demo.repository.LocationRepository;
 import com.example.demo.repository.ReportCategoryRepository;
+import com.example.demo.repository.ReportImageRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.ReportSpecifications;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -20,6 +23,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -49,6 +53,9 @@ public class ReportService {
     private final ChallengeRepository challengeRepository;
     private final AbuseReportRepository abuseReportRepository;
     private final ReportMatchService reportMatchService;
+    private final ClaimRepository claimRepository;
+    private final ReportImageRepository reportImageRepository;
+    private final ZoneService zoneService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.reports.default-ttl-days:60}")
@@ -94,6 +101,19 @@ public class ReportService {
         }
 
         if (createReportRequestDto.getImages() != null) {
+            // publicId stize od klijenta i ranije se upisivao bez ikakve provere. Posto se
+            // brisanje naloga oslanja bas na to polje da bi uklonilo slike sa Cloudinary-ja,
+            // napadac je mogao da procita publicId sa tudje slike (vidi se iz imageUrl-a),
+            // prijavi ga kao svoj na novom oglasu, pa obrise svoj nalog — i time trajno
+            // unisti fotografiju na tudjem, zivom oglasu. Isti publicId zato sme da postoji
+            // samo jednom u bazi.
+            for (ReportImageRequestDTO imgDto : createReportRequestDto.getImages()) {
+                if (imgDto.getPublicId() != null
+                        && reportImageRepository.existsByPublicId(imgDto.getPublicId())) {
+                    throw new IllegalArgumentException("Image is already attached to another report");
+                }
+            }
+
             for (int i = 0; i < createReportRequestDto.getImages().size(); i++) {
                 ReportImageRequestDTO imgDto = createReportRequestDto.getImages().get(i);
                 ReportImage image = new ReportImage();
@@ -108,10 +128,11 @@ public class ReportService {
 
         eventPublisher.publishEvent(new ReportCreatedEvent(this, saved.getId(), user.getId(), saved.getTitle()));
 
-        return toDetailsDTO(saved, user.getId(), false);
+        return toDetailsDTO(saved, user, false);
     }
 
 
+    @Transactional(readOnly = true)
     public List<ReportListDTO> getReports(ReportType type, String search, String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -126,14 +147,23 @@ public class ReportService {
         List<Report> reports = reportRepository.findAll(spec);
         Set<Long> reportedIds = findReportedIds(reports);
         return reports.stream()
-                .map(report -> toListDTO(report, currentUser.getId(), reportedIds, null))
+                .map(report -> toListDTO(report, currentUser, reportedIds, null))
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<NearbyReportDTO> getNearbyReports(double latitude, double longitude,
                                                   double radiusKm, String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Radijus se klampuje, ali su koordinate do sada isle sirove. Vrednost van opsega ili
+        // NaN (koji Spring uredno parsira) stize do PostGIS-a, a haversine vrati NaN pa filter
+        // po radijusu uvek ispadne netacan — korisnik dobije praznu listu bez objasnjenja,
+        // ili 500 iz baze. Bolje je odbiti odmah.
+        if (!isValidCoordinate(latitude, -90, 90) || !isValidCoordinate(longitude, -180, 180)) {
+            throw new IllegalArgumentException("Latitude must be between -90 and 90, longitude between -180 and 180");
+        }
 
         double effectiveRadiusKm = Math.min(Math.max(radiusKm, 0), NEARBY_MAX_RADIUS_KM);
 
@@ -146,35 +176,71 @@ public class ReportService {
         List<Report> reports = reportRepository.findAll(spec);
         Set<Long> reportedIds = findReportedIds(reports);
 
-        record ReportDistance(Report report, double distanceKm) {}
+        // Privacy by design: nikada se ne poredi tacna lokacija oglasa sa probnom tackom —
+        // pozivalac probnu tacku slobodno bira, pa bi mu tacna distanca kroz nekoliko
+        // poziva trilateracijom odala lokaciju (~100 m). Umesto toga: uvek se ukljucuje
+        // ZONA POZIVAOCA (inace bi korisnik u Borci sa radijusom 5 km dobio praznu listu,
+        // jer je centroid Palilule desetak km daleko), a susedne zone ulaze ako im je
+        // centroid u radijusu. Oglasi bez poznate zone se ne prikazuju (isto kao na mapi).
+        Zone callerZone = zoneService
+                .resolveZone(BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude))
+                .orElse(null);
+        Long callerZoneId = callerZone == null ? null : callerZone.getId();
+        Long callerParentId = callerZone == null ? null : callerZone.getParentId();
+
+        record ReportDistance(Report report, boolean sameZone, Double distanceKm) {}
 
         return reports.stream()
-                .filter(report -> report.getLocation() != null)
-                .map(report -> new ReportDistance(report, haversineKm(
-                        latitude, longitude,
-                        report.getLocation().getLatitude().doubleValue(),
-                        report.getLocation().getLongitude().doubleValue())))
-                .filter(rd -> rd.distanceKm() <= effectiveRadiusKm)
-                .sorted(Comparator.comparingDouble(ReportDistance::distanceKm))
+                .filter(report -> report.getLocation() != null && report.getLocation().getZone() != null)
+                .map(report -> {
+                    Zone zone = report.getLocation().getZone();
+                    boolean sameZone = isSameArea(zone, callerZoneId, callerParentId);
+                    double centroidDistanceKm = GeoUtils.haversineKm(
+                            latitude, longitude,
+                            zone.getCentroidLatitude().doubleValue(),
+                            zone.getCentroidLongitude().doubleValue());
+                    // Za sopstvenu zonu distanca se ne prikazuje: rastojanje do centroida
+                    // bi bilo obmanjujuce (oglas moze biti u istoj ulici, a centroid daleko).
+                    return new ReportDistance(report, sameZone,
+                            sameZone ? null : centroidDistanceKm);
+                })
+                .filter(rd -> rd.sameZone() || rd.distanceKm() <= effectiveRadiusKm)
+                .sorted(Comparator
+                        .comparing((ReportDistance rd) -> !rd.sameZone())
+                        .thenComparing(rd -> rd.distanceKm() == null ? 0.0 : rd.distanceKm())
+                        .thenComparing(rd -> rd.report().getCreatedAt(), Comparator.reverseOrder())
+                        .thenComparing(rd -> rd.report().getId()))
                 .limit(NEARBY_RESULT_LIMIT)
-                .map(rd -> toNearbyDTO(rd.report(), currentUser.getId(), reportedIds, rd.distanceKm()))
+                .map(rd -> toNearbyDTO(rd.report(), currentUser, reportedIds,
+                        rd.distanceKm() == null ? null : DistanceBand.of(rd.distanceKm())))
                 .toList();
     }
 
-    private double haversineKm(double lat1, double lon1, double lat2, double lon2) {
-        double earthRadiusKm = 6371.0;
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return earthRadiusKm * c;
+    /**
+     * Da li oglas i pozivalac pripadaju istom podrucju, uzimajuci u obzir hijerarhiju.
+     *
+     * Bez provere roditelj/dete nastaje ovakav propust: oglas na Adi Ciganliji nema mesnu
+     * zajednicu (rupa u OSM podacima), pa se razresava na opstinu Cukarica, cija je
+     * reprezentativna tacka nekoliko kilometara dalje. Korisnik 300 m odatle razresava se
+     * u mesnu zajednicu Cukaricka padina, zone se ne poklapaju, distanca do centroida
+     * Cukarice je ~6 km i sa podrazumevanih 5 km oglas 300 m daleko ispada iz liste.
+     */
+    private boolean isValidCoordinate(double value, double min, double max) {
+        return Double.isFinite(value) && value >= min && value <= max;
     }
 
-    private NearbyReportDTO toNearbyDTO(Report report, Long viewerId, Set<Long> reportedIds,
-                                        double distanceKm) {
-        String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewerId)
+    private boolean isSameArea(Zone zone, Long callerZoneId, Long callerParentId) {
+        if (callerZoneId == null) {
+            return false;
+        }
+        return zone.getId().equals(callerZoneId)
+                || zone.getId().equals(callerParentId)
+                || callerZoneId.equals(zone.getParentId());
+    }
+
+    private NearbyReportDTO toNearbyDTO(Report report, User viewer, Set<Long> reportedIds,
+                                        DistanceBand distanceBand) {
+        String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewer.getId())
                 ? null
                 : report.getImages().getFirst().getImageUrl();
 
@@ -185,14 +251,15 @@ public class ReportService {
                 report.getCategory().getName(),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
-                LocationDTO.fromEntity(report.getLocation()),
+                locationFor(report, viewer, false),
                 report.getCreatedAt(),
                 thumbnailUrl,
                 reportedIds.contains(report.getId()),
-                Math.round(distanceKm * 10.0) / 10.0
+                distanceBand
         );
     }
 
+    @Transactional(readOnly = true)
     public List<ReportListDTO> getMyReports(String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -207,7 +274,7 @@ public class ReportService {
         Map<Long, Long> matchCounts = reportMatchService.getMatchCounts(
                 reports.stream().map(Report::getId).toList());
         return reports.stream()
-                .map(report -> toListDTO(report, currentUser.getId(), reportedIds,
+                .map(report -> toListDTO(report, currentUser, reportedIds,
                         matchCounts.getOrDefault(report.getId(), 0L)))
                 .toList();
     }
@@ -221,6 +288,7 @@ public class ReportService {
                 ids, AbuseReportStatus.PENDING, REPORT_VISIBILITY_THRESHOLD));
     }
 
+    @Transactional(readOnly = true)
     public Optional<ReportDetailsDTO> getReportById(Long id, String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -229,10 +297,11 @@ public class ReportService {
                 .filter(report -> report.getStatus() != ReportStatus.DELETED)
                 .filter(report -> report.getStatus() != ReportStatus.FLAGGED
                         || report.getUser().getId().equals(currentUser.getId()))
-                .map(report -> toDetailsDTO(report, currentUser.getId(),
+                .map(report -> toDetailsDTO(report, currentUser,
                         abuseReportRepository.countByTargetReportIdAndStatus(report.getId(), AbuseReportStatus.PENDING)
                                 >= REPORT_VISIBILITY_THRESHOLD));
     }
+
 
     private Location findOrCreateLocation(LocationRequestDTO dto) {
         Optional<Location> existing = locationRepository.findByOsmId(dto.getOsmId());
@@ -241,6 +310,9 @@ public class ReportService {
         }
 
         Location location = locationService.lookupLocation(dto.getOsmId(), dto.getOsmType());
+        location.setZone(zoneService
+                .resolveZone(location.getLatitude(), location.getLongitude())
+                .orElse(null));
         return locationRepository.save(location);
     }
 
@@ -249,8 +321,21 @@ public class ReportService {
                 && !report.getUser().getId().equals(viewerId);
     }
 
-    private ReportListDTO toListDTO(Report report, Long viewerId, Set<Long> reportedIds, Long matchCount) {
-        String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewerId)
+    /**
+     * Privacy by design: tacna lokacija se otkriva samo vlasniku oglasa i onome kome
+     * je verifikacija vlasnistva odobrena. Svi ostali dobijaju samo naziv zone.
+     * Moderacija ide kroz /admin/reports (uvek tacna lokacija), ne kroz granu po roli.
+     */
+    private LocationDTO locationFor(Report report, User viewer, boolean revealedByVerification) {
+        boolean exact = revealedByVerification || report.getUser().getId().equals(viewer.getId());
+
+        return exact
+                ? LocationDTO.fromEntity(report.getLocation())
+                : LocationDTO.zonalFromEntity(report.getLocation());
+    }
+
+    private ReportListDTO toListDTO(Report report, User viewer, Set<Long> reportedIds, Long matchCount) {
+        String thumbnailUrl = report.getImages().isEmpty() || hidesImagesFrom(report, viewer.getId())
                 ? null
                 : report.getImages().getFirst().getImageUrl();
 
@@ -261,7 +346,7 @@ public class ReportService {
                 report.getCategory().getName(),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
-                LocationDTO.fromEntity(report.getLocation()),
+                locationFor(report, viewer, false),
                 report.getCreatedAt(),
                 thumbnailUrl,
                 reportedIds.contains(report.getId()),
@@ -269,8 +354,8 @@ public class ReportService {
         );
     }
 
-    private ReportDetailsDTO toDetailsDTO(Report report, Long viewerId, boolean reported) {
-        List<ReportImageDTO> imageDtos = hidesImagesFrom(report, viewerId)
+    private ReportDetailsDTO toDetailsDTO(Report report, User viewer, boolean reported) {
+        List<ReportImageDTO> imageDtos = hidesImagesFrom(report, viewer.getId())
                 ? List.of()
                 : report.getImages().stream()
                         .map(img -> new ReportImageDTO(img.getId(), img.getImageUrl(), img.getDisplayOrder()))
@@ -282,6 +367,32 @@ public class ReportService {
                         .orElse(null)
                 : null;
 
+        // Challenge koji je OVAJ posmatrac otvorio kao nalazac na tudjem izgubljenom oglasu.
+        // Bez toga klijent ne zna da je vec poslao pitanja, pa nudi akciju drugi put i tek
+        // POST vrati 400. Isti podatak je i jedina veza nalazaca sa claim-ovima na njegovom
+        // challenge-u — vlasnik oglasa nije autor, pa mu challengeId iznad ne pomaze.
+        Long myChallengeId = report.getType() == ReportType.LOST
+                ? challengeRepository.findByReportIdAndAuthorId(report.getId(), viewer.getId())
+                        .map(Challenge::getId)
+                        .orElse(null)
+                : null;
+
+        // Stanje sopstvenog claim-a posmatraca na challenge-u ovog oglasa. Ogledalo je
+        // ReportChallengeDto, koji isto vec nosi za izgubljene oglase; bez toga se dugme
+        // "Claim ownership" nudi i posle poslatog claim-a.
+        List<Claim> myClaims = challengeId == null
+                ? List.of()
+                : claimRepository.findByChallengeIdAndClaimantIdOrderBySubmittedAtDesc(
+                        challengeId, viewer.getId());
+        Claim latestClaim = myClaims.isEmpty() ? null : myClaims.get(0);
+
+        // Detalj oglasa je jedina povrsina gde uspesna verifikacija otkriva tacnu
+        // lokaciju — po istom principu kao otkrivanje kontakta na odobrenom claimu.
+        // Upit se izvrsava samo za tudje oglase; vlasnik ionako vidi tacnu lokaciju.
+        boolean isOwner = report.getUser().getId().equals(viewer.getId());
+        boolean revealedByVerification = !isOwner && claimRepository.existsClaimOnReportWithStatus(
+                report.getId(), viewer.getId(), ClaimStatus.APPROVED);
+
         return new ReportDetailsDTO(
                 report.getId(),
                 report.getTitle(),
@@ -291,7 +402,7 @@ public class ReportService {
                 report.getCategory().getName(),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
-                LocationDTO.fromEntity(report.getLocation()),
+                locationFor(report, viewer, revealedByVerification),
                 report.getCreatedAt(),
                 report.getExpiresAt(),
                 report.getUser().getId(),
@@ -300,8 +411,19 @@ public class ReportService {
                 hasText(report.getContactPhone()),
                 imageDtos,
                 challengeId,
-                reported
+                myChallengeId,
+                latestClaim == null ? null : latestClaim.getId(),
+                latestClaim == null ? null : latestClaim.getStatus(),
+                myClaims.size(),
+                ClaimService.MAX_ATTEMPTS_PER_CHALLENGE,
+                reported,
+                describeZoneOf(report).orElse(null)
         );
+    }
+
+    private Optional<ReportZoneDto> describeZoneOf(Report report) {
+        Zone zone = report.getLocation() == null ? null : report.getLocation().getZone();
+        return zoneService.describeZone(zone == null ? null : zone.getId());
     }
 
     private String buildFullName(User user) {

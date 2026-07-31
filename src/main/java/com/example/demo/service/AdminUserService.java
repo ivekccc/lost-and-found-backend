@@ -70,13 +70,40 @@ public class AdminUserService {
                 "Your account is restricted: you can no longer post found items or send verification questions.", "{}");
     }
 
+    /**
+     * Skida blokadu sa naloga i vraca oglase koje je blokada sakrila.
+     *
+     * Dve popravke u odnosu na raniju verziju. Prvo, nije bilo provere statusa, pa je unblock
+     * nad obrisanim nalogom vracao DELETED u ACTIVE i tiho ponistavao GDPR brisanje. Drugo,
+     * blockUser prebacuje sve aktivne oglase korisnika u FLAGGED, a unblock ih nije vracao —
+     * korisnik bi se odblokirao, video svoje oglase u "moji oglasi", a njih niko drugi ne bi
+     * video niti bi ulazili u matching, bez ijedne poruke i bez nacina da to sam popravi.
+     */
     @Transactional
     public void unblockUser(Long id, String adminEmail) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getStatus() != UserStatus.BLOCKED && user.getStatus() != UserStatus.PARTIALLY_BLOCKED) {
+            throw new IllegalArgumentException("Only blocked accounts can be unblocked");
+        }
+
         user.setStatus(UserStatus.ACTIVE);
         userRepository.save(user);
+        restoreHiddenReports(user.getId());
         abuseReportService.dismissReportsForUser(user.getId(), adminEmail);
+    }
+
+    private void restoreHiddenReports(Long userId) {
+        for (Report report : reportRepository.findByUserId(userId)) {
+            if (report.isHiddenByUserBlock()) {
+                if (report.getStatus() == ReportStatus.FLAGGED) {
+                    report.setStatus(ReportStatus.ACTIVE);
+                }
+                report.setHiddenByUserBlock(false);
+                reportRepository.save(report);
+            }
+        }
     }
 
     private User requireNonAdmin(Long id) {
@@ -92,6 +119,8 @@ public class AdminUserService {
         for (Report report : reportRepository.findByUserId(userId)) {
             if (report.getStatus() == ReportStatus.ACTIVE) {
                 report.setStatus(ReportStatus.FLAGGED);
+                report.setHiddenByUserBlock(true);
+                reportRepository.save(report);
             }
         }
     }

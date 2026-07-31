@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationService {
+
+    private static final int MAX_PAGE_SIZE = 50;
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
@@ -62,8 +65,14 @@ public class NotificationService {
     }
 
 
+  
     @Transactional(readOnly = true)
-    public Page<NotificationDTO> getNotifications(String email, List<NotificationType> types, Pageable pageable) {
+    public Page<NotificationDTO> getNotifications(String email, List<NotificationType> types,
+                                                  int page, int size) {
+        Pageable pageable = PageRequest.of(
+                Math.max(page, 0),
+                Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
+
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 

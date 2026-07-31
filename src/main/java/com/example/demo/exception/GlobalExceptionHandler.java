@@ -49,6 +49,12 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponseDTO("Invalid or missing request parameter", HttpStatus.BAD_REQUEST.value()));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponseDTO> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
     @ExceptionHandler(InvalidVerificationException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidVerification(InvalidVerificationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)

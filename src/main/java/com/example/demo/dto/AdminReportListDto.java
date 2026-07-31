@@ -9,12 +9,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
+
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminReportDetailsDTO {
+public class AdminReportListDto {
 
     @NotNull
     private Long id;
@@ -22,13 +22,8 @@ public class AdminReportDetailsDTO {
     @NotBlank
     private String title;
 
-    private String description;
-
     @NotNull
     private ReportType type;
-
-    @NotNull
-    private Long categoryId;
 
     @NotBlank
     private String categoryName;
@@ -41,16 +36,8 @@ public class AdminReportDetailsDTO {
     @NotNull
     private LocalDateTime createdAt;
 
-    private LocalDateTime expiresAt;
-
     @NotNull
-    private Long userId;
+    private Long ownerId;
 
-    private String userFullName;
-
-    private String contactEmail;
-
-    private String contactPhone;
-
-    private List<ReportImageDTO> images;
+    private String ownerName;
 }

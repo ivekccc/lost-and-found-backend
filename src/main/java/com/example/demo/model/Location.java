@@ -45,6 +45,10 @@ public class Location {
     @Column(name = "osm_id", length = 50)
     private String osmId;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "zone_id")
+    private Zone zone;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

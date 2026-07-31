@@ -32,7 +32,6 @@ public class MatchReportSummaryDto {
     @NotNull
     private ReportStatus status;
 
-    @NotNull
     private LocationDTO location;
 
     @NotNull

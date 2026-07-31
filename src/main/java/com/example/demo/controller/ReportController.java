@@ -56,7 +56,13 @@ public class ReportController {
 
     @GetMapping("/nearby")
     @Operation(summary = "Get found reports nearby",
-            description = "Returns FOUND reports from other users within radiusKm of the given coordinates, sorted by distance ascending, each with its distance in km")
+            description = "Returns FOUND reports from other users, grouped by administrative zone rather than exact position. "
+                    + "A zone is usually a local community of about 1 km², falling back to the city municipality where no finer "
+                    + "unit covers the point. The caller's own zone is always included regardless of radiusKm, as is its parent "
+                    + "municipality and any zone sharing that parent relationship, so a report just across a zone border is never "
+                    + "dropped; other zones are included when their centroid lies within radiusKm of the given coordinates. "
+                    + "Reports in the caller's own zone come first. distanceBand is measured to the report's ZONE CENTROID and is "
+                    + "absent for reports in the caller's own zone.")
     public ResponseEntity<List<NearbyReportDTO>> getNearbyReports(
             @RequestParam double latitude,
             @RequestParam double longitude,

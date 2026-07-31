@@ -1,17 +1,25 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AdminReportDetailsDTO;
+import com.example.demo.dto.AdminReportListDto;
 import com.example.demo.dto.LocationDTO;
 import com.example.demo.dto.ReportImageDTO;
 import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.model.ClaimStatus;
 import com.example.demo.model.Report;
 import com.example.demo.model.ReportStatus;
+import com.example.demo.model.ReportType;
 import com.example.demo.model.User;
+import com.example.demo.repository.ClaimRepository;
 import com.example.demo.repository.ReportRepository;
+import com.example.demo.repository.ReportSpecifications;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -19,7 +27,40 @@ import java.util.List;
 public class AdminReportService {
 
     private final ReportRepository reportRepository;
+    private final ClaimRepository claimRepository;
     private final AbuseReportService abuseReportService;
+
+    /**
+     * Sve oglase za moderaciju: svi statusi osim DELETED, svi vlasnici, uvek tacna
+     * lokacija. Backoffice namerno NE koristi javni GET /reports — on filtrira samo
+     * ACTIVE i izbacuje oglase samog pozivaoca, pa FLAGGED oglasi tamo nisu vidljivi.
+     */
+    @Transactional(readOnly = true)
+    public List<AdminReportListDto> getReports(ReportType type, ReportStatus status) {
+        Specification<Report> spec = Specification.allOf(
+                ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.hasType(type),
+                ReportSpecifications.hasStatus(status)
+        );
+
+        return reportRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .map(this::mapToListDto)
+                .toList();
+    }
+
+    private AdminReportListDto mapToListDto(Report report) {
+        return new AdminReportListDto(
+                report.getId(),
+                report.getTitle(),
+                report.getType(),
+                report.getCategory().getName(),
+                report.getStatus(),
+                LocationDTO.fromEntity(report.getLocation()),
+                report.getCreatedAt(),
+                report.getUser().getId(),
+                buildFullName(report.getUser())
+        );
+    }
 
     public AdminReportDetailsDTO getReportById(Long id) {
         Report report = reportRepository.findById(id)
@@ -38,13 +79,32 @@ public class AdminReportService {
         abuseReportService.resolveReportsForReport(id, adminEmail);
     }
 
+    /**
+     * Skida oznaku sa oglasa i vraca ga u status koji mu po podacima pripada.
+     *
+     * Ranije je bezuslovno vracao ACTIVE, pa je unflag umeo da ozivi oglas koji je pre
+     * oznacavanja vec bio zavrsen ili istekao: oglas sa odobrenim claim-om vratio bi se u
+     * pretragu i u matching za predmet koji je odavno vracen, a istekao bi ponovo poceo da
+     * se prikazuje. Status se zato izvodi iz cinjenica, a ne pretpostavlja.
+     */
     @Transactional
     public void unflagReport(Long id) {
         Report report = reportRepository.findById(id)
                 .filter(r -> r.getStatus() == ReportStatus.FLAGGED)
                 .orElseThrow(() -> new ResourceNotFoundException("Flagged report not found"));
-        report.setStatus(ReportStatus.ACTIVE);
+
+        report.setStatus(restoredStatusFor(report));
         reportRepository.save(report);
+    }
+
+    private ReportStatus restoredStatusFor(Report report) {
+        if (claimRepository.existsByReportIdAndStatus(report.getId(), ClaimStatus.APPROVED)) {
+            return ReportStatus.MATCHED;
+        }
+        if (report.getExpiresAt() != null && report.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return ReportStatus.EXPIRED;
+        }
+        return ReportStatus.ACTIVE;
     }
 
     private AdminReportDetailsDTO mapToDetailsDTO(Report report) {

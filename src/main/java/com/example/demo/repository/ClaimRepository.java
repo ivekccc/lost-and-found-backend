@@ -23,11 +23,20 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     boolean existsByChallengeIdAndClaimantIdAndStatus(Long challengeId, Long claimantId, ClaimStatus status);
 
+    @Query("SELECT COUNT(c) > 0 FROM Claim c WHERE c.challenge.report.id = :reportId "
+            + "AND c.claimant.id = :claimantId AND c.status = :status")
+    boolean existsClaimOnReportWithStatus(@Param("reportId") Long reportId,
+                                          @Param("claimantId") Long claimantId,
+                                          @Param("status") ClaimStatus status);
+
     @Query("SELECT COUNT(c) FROM Claim c WHERE c.claimant.id = :claimantId AND c.submittedAt >= :since")
     long countByClaimantIdSince(@Param("claimantId") Long claimantId, @Param("since") LocalDateTime since);
 
     @Query("SELECT c FROM Claim c WHERE c.challenge.report.id = :reportId AND c.status = :status")
     List<Claim> findByReportIdAndStatus(@Param("reportId") Long reportId, @Param("status") ClaimStatus status);
+
+    @Query("SELECT COUNT(c) > 0 FROM Claim c WHERE c.challenge.report.id = :reportId AND c.status = :status")
+    boolean existsByReportIdAndStatus(@Param("reportId") Long reportId, @Param("status") ClaimStatus status);
 
     List<Claim> findByStatusOrderBySubmittedAtDesc(ClaimStatus status);
 
