@@ -9,7 +9,10 @@ import com.example.demo.model.ReportType;
 import com.example.demo.service.ReportMatchService;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -91,5 +94,44 @@ public class ReportController {
         return reportService.getReportById(id, userDetails.getUsername())
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/close")
+    @Operation(summary = "Close my report",
+            description = "Marks the caller's own active report as matched: it stops appearing in search, "
+                    + "in nearby results and in the matching engine, and its existing matches become hidden "
+                    + "to both sides. Nothing is deleted — the owner can reopen it later. Only the report "
+                    + "owner may call this; another user's report is reported as not found.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Report closed",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportDetailsDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Report is not active"),
+            @ApiResponse(responseCode = "404", description = "Report not found or not owned by the caller")
+    })
+    public ResponseEntity<ReportDetailsDTO> closeReport(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.closeReport(id, userDetails.getUsername()));
+    }
+
+    @PostMapping("/{id}/reopen")
+    @Operation(summary = "Reopen my report",
+            description = "Returns the caller's own closed report to active: it appears in search and nearby "
+                    + "again, re-enters the matching engine, and its previously hidden matches become visible "
+                    + "immediately. The expiry date is extended by a full term, so a report that sat closed "
+                    + "past its original expiry is not swept away right after being reopened. Only the report "
+                    + "owner may call this; another user's report is reported as not found.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Report reopened",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportDetailsDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Report is not closed"),
+            @ApiResponse(responseCode = "404", description = "Report not found or not owned by the caller")
+    })
+    public ResponseEntity<ReportDetailsDTO> reopenReport(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.reopenReport(id, userDetails.getUsername()));
     }
 }

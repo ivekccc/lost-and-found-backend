@@ -98,7 +98,11 @@ public class AdminReportService {
     }
 
     private ReportStatus restoredStatusFor(Report report) {
-        if (claimRepository.existsByReportIdAndStatus(report.getId(), ClaimStatus.APPROVED)) {
+        // Uslov na tip prati ClaimService.approveClaim: odobren claim zatvara samo PRONADJEN
+        // oglas. Bez njega bi unflag vratio MATCHED na izgubljeni oglas i time ponistio
+        // zastitu koja sprecava da trece lice zatvori tudji oglas.
+        if (report.getType() == ReportType.FOUND
+                && claimRepository.existsByReportIdAndStatus(report.getId(), ClaimStatus.APPROVED)) {
             return ReportStatus.MATCHED;
         }
         if (report.getExpiresAt() != null && report.getExpiresAt().isBefore(LocalDateTime.now())) {

@@ -54,6 +54,7 @@ public class ReportService {
     private final AbuseReportRepository abuseReportRepository;
     private final ReportMatchService reportMatchService;
     private final ClaimRepository claimRepository;
+    private final ClaimService claimService;
     private final ReportImageRepository reportImageRepository;
     private final ZoneService zoneService;
     private final ApplicationEventPublisher eventPublisher;
@@ -129,6 +130,78 @@ public class ReportService {
         eventPublisher.publishEvent(new ReportCreatedEvent(this, saved.getId(), user.getId(), saved.getTitle()));
 
         return toDetailsDTO(saved, user, false);
+    }
+
+    /**
+     * Vraca zatvoren oglas medju aktivne.
+     *
+     * Do sada je MATCHED bio slepa ulica: oglas ispada iz pretrage i iz matchinga, ne prima
+     * vise challenge, nikad ne istice, a svi njegovi meceve postaju nevidljivi OBEMA stranama.
+     * Kod izgubljenog oglasa u to stanje ga je mogao gurnuti NALAZAC odobravanjem claim-a, pa
+     * je vlasnik ostajao bez svog oglasa i bez ijednog nacina da ga vrati.
+     *
+     * expiresAt se pomera na pun TTL bezuslovno. Bez toga bi oglas koji je u MATCHED stajao
+     * duze od svojih 60 dana sledeci sweep (na sat vremena) odmah ugasio i poslao korisniku
+     * "Your report expired" — sekund posle sto ga je vratio.
+     *
+     * Postojeci report_matches redovi se ne brisu kad oglas ode u MATCHED, samo se filtriraju
+     * u citanju, pa se posle vracanja pojave odmah i bez preracunavanja.
+     */
+    @Transactional
+    public ReportDetailsDTO reopenReport(Long id, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Report report = ownedReport(id, user);
+
+        if (report.getStatus() != ReportStatus.MATCHED) {
+            throw new IllegalArgumentException("Only a closed report can be reopened");
+        }
+
+        report.setStatus(ReportStatus.ACTIVE);
+        report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
+        reportRepository.save(report);
+
+        return toDetailsDTO(report, user, false);
+    }
+
+    /**
+     * Vlasnik sam sklanja svoj oglas iz pretrage i matchinga, bez brisanja.
+     *
+     * Postoji kao par reopen-u: posto odobravanje claim-a na izgubljenom oglasu vise ne menja
+     * status (vidi ClaimService.approveClaim), vlasnik je jedini ko taj oglas moze da zatvori
+     * posto je predmet vracen.
+     */
+    @Transactional
+    public ReportDetailsDTO closeReport(Long id, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Report report = ownedReport(id, user);
+
+        if (report.getStatus() != ReportStatus.ACTIVE) {
+            throw new IllegalArgumentException("Only an active report can be closed");
+        }
+
+        report.setStatus(ReportStatus.MATCHED);
+        reportRepository.save(report);
+
+        // Zatvoren oglas vise ne prima odluke o claim-ovima (approveClaim trazi ACTIVE), pa bi
+        // svaki claim koji ceka ostao PENDING zauvek i podnosilac bi bez objasnjenja gledao
+        // "Pending review". Zato se odbijaju odmah, uz notifikaciju.
+        claimService.declinePendingClaimsForReport(report.getId());
+
+        return toDetailsDTO(report, user, false);
+    }
+
+    /**
+     * Oglas u vlasnistvu pozivaoca, ili 404. Tudji oglas se NE razlikuje od nepostojeceg —
+     * ista konvencija kao ReportMatchService.getMatchesForReport, da id-jevi ne cure.
+     */
+    private Report ownedReport(Long id, User user) {
+        return reportRepository.findById(id)
+                .filter(report -> report.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
     }
 
 

@@ -228,7 +228,16 @@ public class ClaimService {
 
         claim.setStatus(ClaimStatus.APPROVED);
         claim.setDecidedAt(LocalDateTime.now());
-        report.setStatus(ReportStatus.MATCHED);
+
+        // Status oglasa menja se SAMO kad ga zatvara njegov vlasnik. Kod pronadjenog oglasa
+        // challenge pravi vlasnik, pa je odobravanje njegova odluka. Kod IZGUBLJENOG challenge
+        // pravi nalazac — dakle trece lice — pa bi ovde tudji oglas trajno zavrsio u MATCHED,
+        // ispao iz pretrage i matchinga, i vlasnik ga ne bi mogao vratiti. Otkrivanje kontakta
+        // i tacne lokacije vozi status CLAIM-a, ne oglasa, pa ovim niko ne gubi nista sto je
+        // zaradio verifikacijom; izgubljeni oglas zatvara vlasnik kroz POST /reports/{id}/close.
+        if (report.getType() == ReportType.FOUND) {
+            report.setStatus(ReportStatus.MATCHED);
+        }
 
         for (Claim other : claimRepository.findByReportIdAndStatus(report.getId(), ClaimStatus.PENDING)) {
             if (!other.getId().equals(claim.getId())) {
@@ -256,6 +265,24 @@ public class ClaimService {
         publishDecision(claim, false);
 
         return toDetailsDto(claim);
+    }
+
+    /**
+     * Odbija sve claim-ove koji cekaju odluku na datom oglasu, uz notifikaciju svakom
+     * podnosiocu.
+     *
+     * Zove se kad vlasnik zatvori svoj oglas. Bez toga bi ti claim-ovi ostali PENDING
+     * zauvek: approveClaim od tog trenutka odbija ne-ACTIVE oglase, pa ih vlasnik ne moze
+     * ni prihvatiti ni odbiti, a podnosilac bi bez ijednog signala gledao "Pending review".
+     * Isto ponasanje kao u approveClaim, koji vec odbija preostale claim-ove kad zatvara oglas.
+     */
+    @Transactional
+    public void declinePendingClaimsForReport(Long reportId) {
+        for (Claim claim : claimRepository.findByReportIdAndStatus(reportId, ClaimStatus.PENDING)) {
+            claim.setStatus(ClaimStatus.DECLINED);
+            claim.setDecidedAt(LocalDateTime.now());
+            publishDecision(claim, false);
+        }
     }
 
     private void publishDecision(Claim claim, boolean approved) {
