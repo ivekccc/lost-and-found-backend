@@ -56,6 +56,7 @@ public class ReportService {
     private final ClaimRepository claimRepository;
     private final ClaimService claimService;
     private final ReportImageRepository reportImageRepository;
+    private final CloudinaryService cloudinaryService;
     private final ZoneService zoneService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -102,15 +103,21 @@ public class ReportService {
         }
 
         if (createReportRequestDto.getImages() != null) {
-            // publicId stize od klijenta i ranije se upisivao bez ikakve provere. Posto se
-            // brisanje naloga oslanja bas na to polje da bi uklonilo slike sa Cloudinary-ja,
-            // napadac je mogao da procita publicId sa tudje slike (vidi se iz imageUrl-a),
-            // prijavi ga kao svoj na novom oglasu, pa obrise svoj nalog — i time trajno
-            // unisti fotografiju na tudjem, zivom oglasu. Isti publicId zato sme da postoji
-            // samo jednom u bazi.
+            // publicId stize od klijenta, pa se ne sme uzeti na rec: brisanje naloga uklanja
+            // slike sa Cloudinary-ja bas po tom polju, sto je znacilo da prijavljivanje tudjeg
+            // publicId-a (cita se iz imageUrl-a) unistava tudju fotografiju.
+            //
+            // Prva provera je sustinska: ime fajla je server generisao i potpisao pod prefiksom
+            // korisnika, pa tudje ime ne moze ni da pripada pozivaocu. Druga je odbrana u dubinu
+            // za slike otpremljene pre uvodenja prefiksa.
             for (ReportImageRequestDTO imgDto : createReportRequestDto.getImages()) {
-                if (imgDto.getPublicId() != null
-                        && reportImageRepository.existsByPublicId(imgDto.getPublicId())) {
+                if (imgDto.getPublicId() == null) {
+                    continue;
+                }
+                if (!cloudinaryService.isOwnedBy(imgDto.getPublicId(), user.getId())) {
+                    throw new IllegalArgumentException("Image was not uploaded by you");
+                }
+                if (reportImageRepository.existsByPublicId(imgDto.getPublicId())) {
                     throw new IllegalArgumentException("Image is already attached to another report");
                 }
             }
