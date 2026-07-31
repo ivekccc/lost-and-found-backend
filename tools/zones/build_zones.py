@@ -33,7 +33,7 @@ OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
 ]
 LOCATIONIQ_BASE = "https://api.locationiq.com/v1"
-LOCATIONIQ_KEY = os.environ.get("LOCATIONIQ_API_KEY", "pk.b3e4b3a16f59a78cc48e19275ede1747")
+LOCATIONIQ_KEY = os.environ.get("LOCATIONIQ_API_KEY")
 LOCATIONIQ_DELAY_SECONDS = 0.6
 USER_AGENT = "lost-and-found-zone-builder/1.0 (master thesis; contact via repo)"
 
@@ -190,6 +190,11 @@ def fetch_geometry(osm_relation_id):
     if os.path.exists(target):
         with open(target, encoding="utf-8") as handle:
             return json.load(handle)
+
+    if not LOCATIONIQ_KEY:
+        raise RuntimeError(
+            "LOCATIONIQ_API_KEY nije postavljen. Kljuc se NE upisuje u kod — ranije je stajao "
+            "kao fallback u ovom fajlu i zavrsio u javnoj git istoriji.")
 
     url = (f"{LOCATIONIQ_BASE}/lookup?key={LOCATIONIQ_KEY}"
            f"&osm_ids=R{osm_relation_id}&format=json&polygon_geojson=1")
