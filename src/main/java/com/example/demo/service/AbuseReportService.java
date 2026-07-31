@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.AbuseReportDto;
+import com.example.demo.dto.AbuseReportReceiptDto;
 import com.example.demo.dto.CreateAbuseReportRequestDto;
 import com.example.demo.exception.InvalidAbuseReportException;
 import com.example.demo.exception.RateLimitExceededException;
@@ -33,9 +34,19 @@ public class AbuseReportService {
     private final ReportRepository reportRepository;
 
     @Transactional
-    public AbuseReportDto createReport(String reporterEmail, CreateAbuseReportRequestDto request) {
+    public AbuseReportReceiptDto createReport(String reporterEmail, CreateAbuseReportRequestDto request) {
         User reporter = userRepository.findByEmail(reporterEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Dnevni limit se proverava PRE nego sto se meta uopste potrazi. Ranije je stajao na kraju,
+        // pa je nepostojeci id davao 404 a postojeci 429 — razlika koja se cita i posle iscrpljenog
+        // limita, sto je znacilo neograniceno prebrojavanje tudih naloga i oglasa jednim nalogom.
+        long dailyCount = abuseReportRepository.countByReporterIdAndCreatedAtAfter(
+                reporter.getId(), LocalDateTime.now().minusDays(1));
+        if (dailyCount >= MAX_REPORTS_PER_DAY) {
+            throw new RateLimitExceededException(
+                    "Daily report limit reached. Try again tomorrow.", DAY_IN_SECONDS);
+        }
 
         AbuseReport report = new AbuseReport();
         report.setReporter(reporter);
@@ -68,14 +79,7 @@ public class AbuseReportService {
             report.setTargetReport(targetReport);
         }
 
-        long dailyCount = abuseReportRepository.countByReporterIdAndCreatedAtAfter(
-                reporter.getId(), LocalDateTime.now().minusDays(1));
-        if (dailyCount >= MAX_REPORTS_PER_DAY) {
-            throw new RateLimitExceededException(
-                    "Daily report limit reached. Try again tomorrow.", DAY_IN_SECONDS);
-        }
-
-        return toDto(abuseReportRepository.save(report));
+        return toReceipt(abuseReportRepository.save(report));
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +136,20 @@ public class AbuseReportService {
         report.setStatus(resolution);
         report.setReviewedBy(admin);
         report.setReviewedAt(LocalDateTime.now());
+    }
+
+    /**
+     * Potvrda podnosiocu — bez ijednog podatka o meti koji on vec nije poslao.
+     * Vidi AbuseReportReceiptDto za razlog.
+     */
+    private AbuseReportReceiptDto toReceipt(AbuseReport report) {
+        return new AbuseReportReceiptDto(
+                report.getId(),
+                report.getTargetType(),
+                report.getReason(),
+                report.getStatus(),
+                report.getCreatedAt()
+        );
     }
 
     private AbuseReportDto toDto(AbuseReport report) {

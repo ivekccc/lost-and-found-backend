@@ -1,6 +1,6 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.AbuseReportDto;
+import com.example.demo.dto.AbuseReportReceiptDto;
 import com.example.demo.dto.CreateAbuseReportRequestDto;
 import com.example.demo.service.AbuseReportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,16 +34,16 @@ public class AbuseReportController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Report submitted",
                     content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AbuseReportDto.class))),
+                            schema = @Schema(implementation = AbuseReportReceiptDto.class))),
             @ApiResponse(responseCode = "400", description = "Invalid report (self-report, duplicate open report)"),
             @ApiResponse(responseCode = "404", description = "Target not found"),
             @ApiResponse(responseCode = "429", description = "Daily report limit reached")
     })
-    public ResponseEntity<AbuseReportDto> report(
+    public ResponseEntity<AbuseReportReceiptDto> report(
             @Valid @RequestBody CreateAbuseReportRequestDto request,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        AbuseReportDto created = abuseReportService.createReport(userDetails.getUsername(), request);
+        AbuseReportReceiptDto created = abuseReportService.createReport(userDetails.getUsername(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 }
