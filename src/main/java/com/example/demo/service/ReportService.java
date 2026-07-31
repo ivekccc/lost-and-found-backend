@@ -199,7 +199,11 @@ public class ReportService {
      * ista konvencija kao ReportMatchService.getMatchesForReport, da id-jevi ne cure.
      */
     private Report ownedReport(Long id, User user) {
-        return reportRepository.findById(id)
+        // Zakljucava se, ne samo cita: zatvaranje oglasa odbija claim-ove koji cekaju odluku,
+        // pa je to odluka o istom resursu kao approveClaim i declineClaim i mora da se sa
+        // njima serijalizuje. Bez toga vlasnik koji zatvara oglas u istom trenutku kad
+        // nalazac odobrava daje istu trku koju zakljucavanje u ClaimService resava.
+        return reportRepository.findByIdForUpdate(id)
                 .filter(report -> report.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
     }

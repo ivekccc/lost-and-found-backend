@@ -27,6 +27,7 @@ import com.example.demo.model.ReportType;
 import com.example.demo.model.User;
 import com.example.demo.repository.ChallengeRepository;
 import com.example.demo.repository.ClaimRepository;
+import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -48,6 +49,7 @@ public class ClaimService {
 
     private final ClaimRepository claimRepository;
     private final ChallengeRepository challengeRepository;
+    private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -212,11 +214,15 @@ public class ClaimService {
     @Transactional
     public ClaimDetailsDto approveClaim(Long claimId, String userEmail) {
         User user = findUser(userEmail);
+
+        // Oglas se zakljucava PRE nego sto se claim uopste ucita — vidi
+        // ReportRepository.findByIdForUpdate. Obrnut redosled bi vratio kesiranu instancu
+        // claim-a i provera requirePending bi i posle cekanja gledala zastarelo stanje.
+        Report report = lockReportOfClaim(claimId);
+
         Claim claim = findClaim(claimId);
         requireChallengeAuthor(claim.getChallenge(), user);
         requirePending(claim);
-
-        Report report = claim.getChallenge().getReport();
 
         // Bez ove provere odobravanje zaostalog claim-a prepisuje BILO KOJI status oglasa
         // u MATCHED — ukljucujuci FLAGGED, cime obican korisnik ponistava odluku moderacije
@@ -255,6 +261,11 @@ public class ClaimService {
     @Transactional
     public ClaimDetailsDto declineClaim(Long claimId, String userEmail) {
         User user = findUser(userEmail);
+
+        // Isto zakljucavanje kao u approveClaim: odbijanje i odobravanje na istom oglasu su
+        // odluke o istom resursu, pa moraju da se serijalizuju medusobno.
+        lockReportOfClaim(claimId);
+
         Claim claim = findClaim(claimId);
         requireChallengeAuthor(claim.getChallenge(), user);
         requirePending(claim);
@@ -302,6 +313,20 @@ public class ClaimService {
         if (claim.getStatus() != ClaimStatus.PENDING) {
             throw new InvalidClaimException("This claim has already been decided");
         }
+    }
+
+    /**
+     * Zakljucava oglas kome claim pripada i vraca ga.
+     *
+     * Id oglasa se dobija projekcijom, bez ucitavanja claim entiteta, upravo da bi
+     * zakljucavanje moglo da prethodi prvom dodiru claim-a.
+     */
+    private Report lockReportOfClaim(Long claimId) {
+        Long reportId = claimRepository.findReportIdByClaimId(claimId)
+                .orElseThrow(() -> new ResourceNotFoundException("Claim with id " + claimId + " not found"));
+
+        return reportRepository.findByIdForUpdate(reportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
     }
 
     private Claim findClaim(Long claimId) {

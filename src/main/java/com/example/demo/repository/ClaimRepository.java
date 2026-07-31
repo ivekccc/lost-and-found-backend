@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
@@ -37,6 +38,15 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     @Query("SELECT COUNT(c) > 0 FROM Claim c WHERE c.challenge.report.id = :reportId AND c.status = :status")
     boolean existsByReportIdAndStatus(@Param("reportId") Long reportId, @Param("status") ClaimStatus status);
+
+    /**
+     * Id oglasa na koji se claim odnosi, BEZ ucitavanja ijednog entiteta.
+     *
+     * Postoji da bi se oglas mogao zakljucati pre nego sto se claim uopste dodirne — vidi
+     * ReportRepository.findByIdForUpdate za razlog zasto redosled mora biti bas takav.
+     */
+    @Query("SELECT c.challenge.report.id FROM Claim c WHERE c.id = :claimId")
+    Optional<Long> findReportIdByClaimId(@Param("claimId") Long claimId);
 
     List<Claim> findByStatusOrderBySubmittedAtDesc(ClaimStatus status);
 
