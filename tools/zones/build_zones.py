@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generator Flyway migracija za zone (opstine, mesne zajednice, naseljena mesta).
 
-Pipeline:
+Pipeline (svaka faza prima --city):
   discover  Overpass  -> spisak OSM relacija po admin_level-u
   geometry  LocationIQ -> sklopljen poligon po relation id-u (kesira se na disk)
   stage     PostGIS   -> staging baza, ST_CoverageSimplify po nivou
@@ -14,6 +14,12 @@ pretraga je za 10 od 17 opstina vratila poligon naseljenog mesta umesto opstine
 Uproscavanje ide kroz ST_CoverageSimplify, ne ST_SimplifyPreserveTopology: per-feature
 Douglas-Peucker pomera svaku stranu zajednicke granice nezavisno, pa pravi procepe i
 preklapanja (na zatecenih 17 zona: 11 sa nevalidnim coverage ivicama).
+
+Administrativni oblik se razlikuje od grada do grada, pa je opisan podacima (CITIES), ne
+kodom. Beograd ima 17 gradskih opstina na admin_level 8 ispod sebe; Grad Novi Sad ih nema
+uopste — mesne zajednice mu vise direktno o gradu; Bajina Basta je obicna opstina sa
+naseljenim mestima i bez ijedne mesne zajednice. Zato nivo 1 moze biti ili skup dece na
+admin_level 8, ili sama korenska relacija.
 """
 
 import argparse
@@ -27,7 +33,6 @@ import unicodedata
 import urllib.parse
 import urllib.request
 
-BELGRADE_BBOX = "44.30,20.00,45.00,20.95"
 OVERPASS_ENDPOINTS = [
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass-api.de/api/interpreter",
@@ -37,7 +42,6 @@ LOCATIONIQ_KEY = os.environ.get("LOCATIONIQ_API_KEY")
 LOCATIONIQ_DELAY_SECONDS = 0.6
 USER_AGENT = "lost-and-found-zone-builder/1.0 (master thesis; contact via repo)"
 
-MUNICIPALITY_PREFIX = "Gradska opština"
 # Tolerancija uproscavanja po nivou, u stepenima. Nivo 1 su opstine medijane ~157 km2,
 # gde je 33 m nevidljivo i stedi pola megabajta; nivo 2 ide na 11 m jer je medijana mesne
 # zajednice ~1.2 km2 (sirina ~1 km), a najsitnija jedinica 0.11 km2.
@@ -71,6 +75,66 @@ TRANSLITERATION = {
     "Č": "C", "Ć": "C", "Š": "S", "Ž": "Z", "Đ": "DJ",
 }
 
+# Sluzbene povrsine, za proveru da dohvacena geometrija nije opet naseljeno mesto umesto
+# administrativne jedinice — greska koja je Beogradu dala 963 km2 umesto 3227 (vidi V36).
+CITIES = {
+    "BG": {
+        "name": "Beograd",
+        "root_relation_id": 1677007,
+        "expected_area_km2": 3227,
+        "level1": {
+            # Jedini grad sa gradskim opstinama. Deca se traze bboxom, a ne kroz
+            # map_to_area korena, jer je tako proizveden zatecen V36 — put se ne menja da
+            # bi migracija ostala reproducibilna.
+            "source": "children",
+            "bbox": "44.30,20.00,45.00,20.95",
+            "name_prefix": "Gradska opština",
+            "expected_count": 17,
+            "codes": {
+                "Barajevo": "BG-BAR",
+                "Voždovac": "BG-VOZ",
+                "Vračar": "BG-VRA",
+                "Grocka": "BG-GRO",
+                "Zvezdara": "BG-ZVE",
+                "Zemun": "BG-ZEM",
+                "Lazarevac": "BG-LAZ",
+                "Mladenovac": "BG-MLA",
+                "Novi Beograd": "BG-NBG",
+                "Obrenovac": "BG-OBR",
+                "Palilula": "BG-PAL",
+                "Rakovica": "BG-RAK",
+                "Savski venac": "BG-SAV",
+                "Sopot": "BG-SOP",
+                "Stari grad": "BG-STG",
+                "Surčin": "BG-SUR",
+                "Čukarica": "BG-CUK",
+            },
+        },
+        "level2_admin_levels": [9, 10],
+        "emit": "update",
+    },
+    "NS": {
+        "name": "Novi Sad",
+        "root_relation_id": 1649672,
+        "expected_area_km2": 699,
+        # Grad Novi Sad nema nijednu jedinicu na admin_level 8 — mesne zajednice vise
+        # direktno o njemu. Nivo 1 je zato sam grad, pa je jedina zona nivoa 1 gruba (699
+        # km2); ona sluzi samo kao fallback za tacke koje ne padnu ni u jednu MZ.
+        "level1": {"source": "self", "code": "NS-NSD", "name": "Novi Sad"},
+        "level2_admin_levels": [9, 10],
+        "emit": "insert",
+    },
+    "BB": {
+        "name": "Bajina Bašta",
+        "root_relation_id": 2872865,
+        "expected_area_km2": 673,
+        "level1": {"source": "self", "code": "BB-BBA", "name": "Bajina Bašta"},
+        # Nema nijedne mesne zajednice; nivo 2 su 36 naseljenih mesta.
+        "level2_admin_levels": [9],
+        "emit": "insert",
+    },
+}
+
 
 def log(message):
     print(message, file=sys.stderr, flush=True)
@@ -79,6 +143,21 @@ def log(message):
 def cache_path(name):
     os.makedirs(CACHE_DIR, exist_ok=True)
     return os.path.join(CACHE_DIR, name)
+
+
+def relations_path(city_code):
+    """Popis relacija po gradu.
+
+    Beogradski popis je nastao pre nego sto je generator znao za vise gradova i lezi u
+    relations.json bez sufiksa. Cita se odatle ako fajl sa sufiksom ne postoji, da
+    ponovno pokretanje beogradskih faza ne bi trazilo novi Overpass upit.
+    """
+    suffixed = cache_path(f"relations-{city_code}.json")
+    if not os.path.exists(suffixed):
+        legacy = cache_path("relations.json")
+        if city_code == "BG" and os.path.exists(legacy):
+            return legacy
+    return suffixed
 
 
 def overpass(query, attempts=3):
@@ -123,45 +202,68 @@ def normalize_unit_name(raw_name):
     return name.strip()
 
 
-def discover():
+def discover_level1(city_code):
+    """Jedinice nivoa 1: ili deca na admin_level 8, ili sama korenska relacija."""
+    city = CITIES[city_code]
+    descriptor = city["level1"]
+
+    if descriptor["source"] == "self":
+        log(f"discover: nivo 1 je sam koren ({descriptor['name']})")
+        return [{
+            "osm_relation_id": city["root_relation_id"],
+            "code": descriptor["code"],
+            "name": descriptor["name"],
+            "city": city["name"],
+            "level": 1,
+        }]
+
     log("discover: admin_level 8 (opstine)")
     municipalities = []
     result = overpass(
         f'[out:json][timeout:180];'
-        f'relation["boundary"="administrative"]["admin_level"="8"]({BELGRADE_BBOX});'
+        f'relation["boundary"="administrative"]["admin_level"="8"]({descriptor["bbox"]});'
         f"out tags;"
     )
+    prefix = descriptor["name_prefix"]
     for element in result["elements"]:
         tags = element["tags"]
         name = tags.get("name:sr-Latn") or tags.get("name", "")
-        if not name.startswith(MUNICIPALITY_PREFIX):
+        if not name.startswith(prefix):
             continue
-        bare = name[len(MUNICIPALITY_PREFIX):].strip()
-        code = MUNICIPALITY_CODES.get(bare)
+        bare = name[len(prefix):].strip()
+        code = descriptor["codes"].get(bare)
         if code is None:
             raise RuntimeError(f"nepoznata opstina iz OSM-a: {bare!r}")
         municipalities.append({
             "osm_relation_id": element["id"],
             "code": code,
             "name": bare,
-            "city": "Beograd",
+            "city": city["name"],
             "level": 1,
         })
-    if len(municipalities) != 17:
-        raise RuntimeError(f"ocekivano 17 opstina, dobijeno {len(municipalities)}")
+    expected = descriptor["expected_count"]
+    if len(municipalities) != expected:
+        raise RuntimeError(f"ocekivano {expected} opstina, dobijeno {len(municipalities)}")
+    return municipalities
 
-    # Podrucje se gradi iz 17 opstina po id-u, a ne iz bboxa: bbox oko Beograda zahvata i
-    # sela iz Rume, Stare Pazove i Kovina. Upit je tezak, pa kumi.systems obicno vrati 504
-    # i posao preuzme overpass-api.de — zato oba endpointa i retry sa backoff-om.
-    log("discover: admin_level 9/10 unutar podrucja 17 opstina")
-    municipality_ids = ",".join(str(entry["osm_relation_id"]) for entry in municipalities)
+
+def discover(city_code):
+    city = CITIES[city_code]
+    municipalities = discover_level1(city_code)
+
+    # Podrucje se gradi iz relacija nivoa 1 po id-u, a ne iz bboxa: bbox oko Beograda
+    # zahvata i sela iz Rume, Stare Pazove i Kovina. Upit je tezak, pa kumi.systems obicno
+    # vrati 504 i posao preuzme overpass-api.de — zato oba endpointa i retry sa backoff-om.
+    admin_levels = "|".join(str(level) for level in city["level2_admin_levels"])
+    log(f"discover: admin_level {admin_levels} unutar podrucja nivoa 1")
+    parent_ids = ",".join(str(entry["osm_relation_id"]) for entry in municipalities)
     units = []
     seen = set()
     result = overpass(
         f"[out:json][timeout:300];"
-        f"rel(id:{municipality_ids});"
-        f"map_to_area->.belgrade;"
-        f'relation["boundary"="administrative"]["admin_level"~"^(9|10)$"](area.belgrade);'
+        f"rel(id:{parent_ids});"
+        f"map_to_area->.parents;"
+        f'relation["boundary"="administrative"]["admin_level"~"^({admin_levels})$"](area.parents);'
         f"out tags;"
     )
     for element in result["elements"]:
@@ -173,15 +275,15 @@ def discover():
         units.append({
             "osm_relation_id": element["id"],
             "name": name,
-            "city": "Beograd",
+            "city": city["name"],
             "level": 2,
             "admin_level": int(tags["admin_level"]),
         })
 
-    payload = {"municipalities": municipalities, "units": units}
-    with open(cache_path("relations.json"), "w", encoding="utf-8") as handle:
+    payload = {"city_code": city_code, "municipalities": municipalities, "units": units}
+    with open(cache_path(f"relations-{city_code}.json"), "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
-    log(f"discover: {len(municipalities)} opstina, {len(units)} jedinica nivoa 2")
+    log(f"discover: {len(municipalities)} jedinica nivoa 1, {len(units)} jedinica nivoa 2")
     return payload
 
 
@@ -261,7 +363,7 @@ def psql_file(path, database=STAGING_DATABASE):
     return result.stdout
 
 
-def stage(payload):
+def stage(payload, city_code):
     environment = dict(os.environ, PGPASSWORD=os.environ.get("DB_PASSWORD", "admin"))
     subprocess.run(
         ["psql", "-h", "localhost", "-U", "postgres", "-d", "postgres",
@@ -329,7 +431,29 @@ def stage(payload):
             f"FROM staging_zones WHERE level = {level}").split("|")
         log(f"stage: nivo {level} -> {total} zona, {points} tacaka, {invalid} nevalidnih ivica")
 
+    verify_area(city_code)
     assign_codes()
+
+
+def verify_area(city_code):
+    """Poredi dohvacenu povrsinu nivoa 1 sa sluzbenom.
+
+    Ovo je odbrana od greske zbog koje V36 postoji: LocationIQ za isto ime vraca i poligon
+    naseljenog mesta i poligon administrativne jedinice, pa je Obrenovac ispao 9.3 km2
+    umesto 411. Odstupanje preko 10% znaci da je dohvacen pogresan sloj, ne nepreciznost
+    uproscavanja — ono menja povrsinu za promile.
+    """
+    expected = CITIES[city_code]["expected_area_km2"]
+    measured = float(psql(
+        "SELECT ST_Area(ST_Union(boundary)::geography) / 1e6 "
+        "FROM staging_zones WHERE level = 1"))
+    deviation = abs(measured - expected) / expected
+    log(f"stage: povrsina nivoa 1 = {measured:.0f} km2 (sluzbeno {expected}, "
+        f"odstupanje {deviation * 100:.1f}%)")
+    if deviation > 0.10:
+        raise RuntimeError(
+            f"povrsina nivoa 1 je {measured:.0f} km2, a sluzbeno {expected} km2 — "
+            f"verovatno je dohvacen poligon naseljenog mesta umesto jedinice")
 
 
 def prune_redundant_settlements():
@@ -534,26 +658,116 @@ def emit_level1(output_path):
     log(f"emit: {output_path} ({os.path.getsize(output_path)} bajtova, {len(rows)} zona)")
 
 
+def emit_city(city_code, output_path):
+    """Jedna migracija sa oba nivoa, za grad koji jos ne postoji u bazi.
+
+    Beograd ima zaseban put (emit-level1 + emit-level2): njegove zone nivoa 1 su vec bile
+    u bazi sa FK-ovima iz locations.zone_id, pa je V36 morao da bude UPDATE. Nov grad tog
+    ogranicenja nema, pa oba nivoa idu kao INSERT u jednom fajlu.
+    """
+    city = CITIES[city_code]
+    if city["emit"] != "insert":
+        raise RuntimeError(f"{city_code} se emituje kroz emit-level1/emit-level2")
+
+    rows = psql("""
+        SELECT level, osm_relation_id, code, name, ST_AsGeoJSON(boundary, 6)
+        FROM staging_zones ORDER BY level, code
+    """).splitlines()
+    level1_count = sum(1 for row in rows if row.startswith("1|"))
+    level2_count = len(rows) - level1_count
+    if level1_count != 1:
+        raise RuntimeError(
+            f"emit-city ocekuje tacno jednu zonu nivoa 1, ima ih {level1_count} — "
+            f"grad sa vise jedinica nivoa 1 traje dodelu roditelja po preseku, kao V39")
+    parent_code = city["level1"]["code"]
+
+    lines = [
+        f"-- Zone grada {city['name']}.",
+        "--",
+        f"-- Nivo 1: {level1_count}, nivo 2: {level2_count}.",
+        "--",
+        "-- Oblik administrativne podele se razlikuje od grada do grada i to se ovde vidi:",
+        "-- Beograd ima 17 gradskih opstina na nivou 1, dok " + city["name"],
+        "-- nema nijednu jedinicu ispod sebe na admin_level 8, pa je nivo 1 sam grad. Ta jedna",
+        "-- gruba zona sluzi iskljucivo kao fallback u zone_resolve za tacke koje ne padnu ni u",
+        "-- jednu jedinicu nivoa 2 (sume, reke, industrijske parcele) — imenovati jedinicu",
+        "-- kilometrima dalje bila bi netacna javna tvrdnja o lokaciji.",
+        "--",
+        "-- Geometrija je dohvacena po EKSPLICITNOM OSM relation id-u i uproscena kroz",
+        "-- ST_CoverageSimplify po nivou, pa su zajednicke granice poklopljene i nema procepa.",
+        "--",
+        "-- ON CONFLICT (osm_relation_id) DO UPDATE: buduce osvezavanje geometrije je isti fajl",
+        "-- sa novim brojem verzije. Azurira redove u mestu, pa zones.id nikada ne mrda i FK iz",
+        "-- locations.zone_id ostaje netaknut. Uz takvo osvezavanje OBAVEZNO ide i klon V41.",
+        "--",
+        "-- parent_id se postavlja ODMAH, a ne naknadno kao u V39: V39 je ostavio CHECK",
+        "-- ck_zones_parent_by_level koji trazi da zona nivoa 2 ima roditelja, pa bi unos sa",
+        "-- praznim parent_id pao na prvom redu. Kod grada sa jednom jedinicom nivoa 1 roditelj",
+        "-- je poznat po konstrukciji, pa dodela po najvecoj povrsini preseka nije ni potrebna.",
+        "--",
+        "-- parent_name, centroid i area_km2 se racunaju u V47, posle unosa.",
+        "",
+    ]
+    for row in rows:
+        level, osm_relation_id, code, name, geojson = row.split("|", 4)
+        parent = ("NULL" if level == "1"
+                  else f"(SELECT id FROM zones WHERE code = {quote(parent_code)})")
+        lines.append(
+            "INSERT INTO zones (code, name, city, city_id, parent_id, boundary, "
+            "centroid_latitude, centroid_longitude, level, osm_relation_id)\nVALUES ("
+            f"{quote(code)}, {quote(name)}, {quote(city['name'])}, "
+            f"(SELECT id FROM cities WHERE code = {quote(city_code)}), {parent}, "
+            f"ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_GeomFromGeoJSON({quote(geojson)})), 3)), "
+            f"0, 0, {level}, {osm_relation_id})\n"
+            "ON CONFLICT (osm_relation_id) DO UPDATE SET "
+            "boundary = EXCLUDED.boundary, name = EXCLUDED.name, code = EXCLUDED.code;"
+        )
+
+    minimum_km2 = round(city["expected_area_km2"] * 0.9)
+    lines += [
+        "",
+        "DO $$",
+        "DECLARE covered_km2 numeric;",
+        "BEGIN",
+        "    SELECT ST_Area(ST_Union(z.boundary)::geography) / 1e6 INTO covered_km2",
+        "    FROM zones z JOIN cities c ON c.id = z.city_id",
+        f"    WHERE c.code = {quote(city_code)} AND z.level = 1;",
+        f"    IF covered_km2 < {minimum_km2} THEN",
+        f"        RAISE EXCEPTION 'Pokrivenost nivoa 1 za {city['name']} je samo % km2, "
+        f"ocekivano ~{city['expected_area_km2']}', round(covered_km2);",
+        "    END IF;",
+        "END $$;",
+        "",
+    ]
+    with open(output_path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+    log(f"emit: {output_path} ({os.path.getsize(output_path)} bajtova, "
+        f"{level1_count} + {level2_count} zona)")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("stage", choices=["discover", "geometry", "stage",
-                                          "emit-level1", "emit-level2"])
+                                          "emit-level1", "emit-level2", "emit-city"])
+    parser.add_argument("--city", default="BG", choices=sorted(CITIES))
     parser.add_argument("--output", default=None)
     arguments = parser.parse_args()
 
     if arguments.stage == "discover":
-        discover()
+        discover(arguments.city)
         return
-    with open(cache_path("relations.json"), encoding="utf-8") as handle:
+    with open(relations_path(arguments.city), encoding="utf-8") as handle:
         payload = json.load(handle)
     if arguments.stage == "geometry":
         geometry(payload)
     elif arguments.stage == "stage":
-        stage(payload)
+        stage(payload, arguments.city)
     elif arguments.stage == "emit-level1":
         emit_level1(arguments.output)
     elif arguments.stage == "emit-level2":
         emit_level2(arguments.output)
+    elif arguments.stage == "emit-city":
+        emit_city(arguments.city, arguments.output)
 
 
 if __name__ == "__main__":

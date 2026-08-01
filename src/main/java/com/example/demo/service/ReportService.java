@@ -84,10 +84,9 @@ public class ReportService {
         report.setStatus(ReportStatus.ACTIVE);
         report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
 
-        if (createReportRequestDto.getLocation() != null) {
-            Location location = findOrCreateLocation(createReportRequestDto.getLocation());
-            report.setLocation(location);
-        }
+        Location location = findOrCreateLocation(createReportRequestDto.getLocation());
+        requireLocationInActiveCity(location, user);
+        report.setLocation(location);
 
         if (createReportRequestDto.getType() == ReportType.LOST
                 && createReportRequestDto.getQuestions() != null
@@ -260,8 +259,10 @@ public class ReportService {
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.hasStatus(ReportStatus.ACTIVE),
                 ReportSpecifications.userIdNotEquals(currentUser.getId()),
+                ReportSpecifications.inCity(currentUser.getActiveCity().getId()),
                 ReportSpecifications.hasType(type),
-                ReportSpecifications.titleContains(search)
+                ReportSpecifications.titleContains(search),
+                ReportSpecifications.withLocationZone()
         );
 
         List<Report> reports = reportRepository.findAll(spec);
@@ -290,7 +291,9 @@ public class ReportService {
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.hasStatus(ReportStatus.ACTIVE),
                 ReportSpecifications.userIdNotEquals(currentUser.getId()),
-                ReportSpecifications.hasType(ReportType.FOUND)
+                ReportSpecifications.inCity(currentUser.getActiveCity().getId()),
+                ReportSpecifications.hasType(ReportType.FOUND),
+                ReportSpecifications.withLocationZone()
         );
 
         List<Report> reports = reportRepository.findAll(spec);
@@ -386,6 +389,7 @@ public class ReportService {
 
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.statusNot(ReportStatus.DELETED),
+                ReportSpecifications.withLocationZone(),
                 ReportSpecifications.userIdEquals(currentUser.getId())
         );
 
@@ -434,6 +438,28 @@ public class ReportService {
                 .resolveZone(location.getLatitude(), location.getLongitude())
                 .orElse(null));
         return locationRepository.save(location);
+    }
+
+    /**
+     * Oglas mora da pripada gradu koji korisnik trenutno pretrazuje.
+     *
+     * Klijent do ovoga normalno ne dolazi: pretraga adresa je vec ogranicena na okvir tog
+     * grada. Ovo je odbrana u dubinu — bez nje bi zaobilazenje autocomplete-a napravilo
+     * oglas koji vlasnik vidi u "mojim oglasima", a niko drugi nigde, jer bi ispao iz svakog
+     * gradskog filtera. Tiha nevidljivost je gora od jasnog odbijanja.
+     */
+    private void requireLocationInActiveCity(Location location, User user) {
+        Zone zone = location.getZone();
+        if (zone == null) {
+            throw new IllegalArgumentException(
+                    "This address is outside the area the app covers");
+        }
+        City activeCity = user.getActiveCity();
+        if (!zone.getCityId().equals(activeCity.getId())) {
+            throw new IllegalArgumentException(
+                    "This address is not in " + activeCity.getName()
+                            + ". Switch city first, or pick an address in " + activeCity.getName() + ".");
+        }
     }
 
     private boolean hidesImagesFrom(Report report, Long viewerId) {

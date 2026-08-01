@@ -6,6 +6,7 @@ import com.example.demo.model.Report;
 import com.example.demo.model.ReportMatch;
 import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
+import com.example.demo.model.Zone;
 import com.example.demo.repository.MatchCandidateView;
 import com.example.demo.repository.ReportMatchRepository;
 import com.example.demo.repository.ReportRepository;
@@ -39,6 +40,13 @@ public class MatchingService {
             return;
         }
 
+        // Oglas bez razresene zone nema grad, pa se ne moze uporediti ni sa jednim kandidatom.
+        // Takvi redovi postoje samo od pre nego sto je lokacija postala obavezna.
+        Zone zone = report.getLocation().getZone();
+        if (zone == null) {
+            return;
+        }
+
         String probeText = buildProbeText(report);
         if (probeText.isBlank()) {
             return;
@@ -50,7 +58,8 @@ public class MatchingService {
                 oppositeType.name(),
                 report.getCategory().getId(),
                 report.getUser().getId(),
-                probeText);
+                probeText,
+                zone.getCityId());
 
         for (MatchCandidateView candidate : candidates) {
             evaluateCandidate(report, candidate);

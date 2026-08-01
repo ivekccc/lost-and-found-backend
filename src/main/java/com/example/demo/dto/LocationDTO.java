@@ -51,11 +51,16 @@ public class LocationDTO {
 
     /**
      * Labela zone: "Mirijevo, Zvezdara" za zonu nivoa 2, "Zvezdara, Beograd" za samu
-     * opstinu (tamo gde finija jedinica ne postoji).
+     * opstinu (tamo gde finija jedinica ne postoji), "Detelinara, Novi Sad" u gradu koji
+     * gradske opstine nema.
      *
      * Naziv roditelja se cita iz denormalizovane kolone zones.parent_name, a ne kroz
      * asocijaciju ili zaseban upit: ova metoda se poziva za SVAKI oglas u listi, pa bi
      * svaki drugi pristup bio N+1.
+     *
+     * Kada bi drugi deo ponovio prvi, izostavlja se. To se desava u opstini kakva je Bajina
+     * Basta: naseljeno mesto "Bajina Basta" ima prazan parent_name (V47 ga brise kad je jednak
+     * imenu deteta), pa bi fallback na ime grada dao "Bajina Basta, Bajina Basta".
      */
     private static String zoneLabel(Location location) {
         Zone zone = location.getZone();
@@ -63,6 +68,9 @@ public class LocationDTO {
             return location.getCity() != null ? location.getCity() : "Nepoznata lokacija";
         }
         String parent = zone.getParentName() != null ? zone.getParentName() : zone.getCity();
+        if (parent == null || parent.equals(zone.getName())) {
+            return zone.getName();
+        }
         return zone.getName() + ", " + parent;
     }
 }

@@ -12,7 +12,8 @@ import lombok.NoArgsConstructor;
 @Schema(name = "ReportZoneDto",
         description = "Administrative zone a report belongs to, with its boundary for map display. "
                 + "Usually a local community (mesna zajednica) or settlement of about 1 km²; falls "
-                + "back to the Belgrade city municipality where no finer unit covers the point, "
+                + "back to a coarser unit — a city municipality, or the whole city where the city has "
+                + "no municipalities — where no finer unit covers the point, "
                 + "such as parks, riverbanks and industrial land.")
 public class ReportZoneDto {
 

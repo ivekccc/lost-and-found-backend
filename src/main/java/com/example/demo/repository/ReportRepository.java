@@ -41,16 +41,27 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     List<Report> findByStatusAndType(ReportStatus status, ReportType type);
 
+    /**
+     * Kandidati za mecovanje: suprotan tip, ista kategorija, tudji oglas, ISTI GRAD.
+     *
+     * Uslov po gradu je eksplicitan iako ga granica od 25 km uglavnom vec postuje. "Uglavnom"
+     * nije dovoljno: Bajina Basta je od susednih opstina bliza od 25 km, pa bi bez ovoga
+     * korisnik dobio mec sa oglasom iz podrucja koje ni ne pretrazuje i ne moze da otvori.
+     * Grad se cita iz zone lokacije, sto je isti izvor po kome se filtrira i pretraga.
+     */
     @Query(value = "SELECT r.id AS id, r.created_at AS createdAt, "
             + "l.latitude AS latitude, l.longitude AS longitude, "
             + "similarity(lower(:probeText), lower(r.title || ' ' || COALESCE(r.description, ''))) AS similarity "
             + "FROM reports r "
             + "JOIN locations l ON l.id = r.location_id "
+            + "JOIN zones z ON z.id = l.zone_id "
             + "WHERE r.type = :type AND r.status = 'ACTIVE' "
-            + "AND r.category_id = :categoryId AND r.user_id <> :ownerId",
+            + "AND r.category_id = :categoryId AND r.user_id <> :ownerId "
+            + "AND z.city_id = :cityId",
             nativeQuery = true)
     List<MatchCandidateView> findMatchCandidates(@Param("type") String type,
                                                  @Param("categoryId") Long categoryId,
                                                  @Param("ownerId") Long ownerId,
-                                                 @Param("probeText") String probeText);
+                                                 @Param("probeText") String probeText,
+                                                 @Param("cityId") Long cityId);
 }

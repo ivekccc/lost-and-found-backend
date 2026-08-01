@@ -32,6 +32,7 @@ public class CreateReportRequestDto {
     private Long categoryId;
 
     @Valid
+    @NotNull(message = "Location is required")
     private LocationRequestDTO location;
 
     @Email(message = "Invalid email format")

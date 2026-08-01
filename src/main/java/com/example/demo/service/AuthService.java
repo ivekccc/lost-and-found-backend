@@ -6,11 +6,13 @@ import com.example.demo.exception.InvalidTokenException;
 import com.example.demo.exception.InvalidVerificationException;
 import com.example.demo.exception.RateLimitExceededException;
 import com.example.demo.exception.UserAlreadyExistsException;
+import com.example.demo.model.City;
 import com.example.demo.model.PasswordReset;
 import com.example.demo.model.PreRegistration;
 import com.example.demo.model.User;
 import com.example.demo.model.UserRole;
 import com.example.demo.model.UserStatus;
+import com.example.demo.repository.CityRepository;
 import com.example.demo.repository.PasswordResetRepository;
 import com.example.demo.repository.PreRegistrationRepository;
 import com.example.demo.repository.UserRepository;
@@ -44,11 +46,15 @@ public class AuthService {
     private final EmailService emailService;
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ApplicationEventPublisher eventPublisher;
+    private final CityRepository cityRepository;
 
     private static final int RESEND_COOLDOWN_SECONDS = 60;
 
     @Value("${app.verification.expiry-minutes:15}")
     private int codeExpiryMinutes;
+
+    @Value("${app.cities.default-code:BG}")
+    private String defaultCityCode;
 
     @Transactional
     public void register(RegisterRequestDTO req) {
@@ -132,6 +138,7 @@ public class AuthService {
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
         user.setRole(UserRole.USER);
+        user.setActiveCity(defaultCity());
         userRepository.save(user);
 
         preRegistrationRepository.delete(preReg);
@@ -194,7 +201,21 @@ public class AuthService {
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
         user.setRole(UserRole.USER);
+        user.setActiveCity(defaultCity());
         return userRepository.save(user);
+    }
+
+    /**
+     * Grad koji nov nalog dobija dok sam ne izabere.
+     *
+     * Kolona je NOT NULL, pa podrazumevana vrednost mora da postoji; Beograd je izabran jer
+     * je jedini grad u kome do sada postoje oglasi. Pogresna pretpostavka nije skupa —
+     * aplikacija na osnovu GPS-a odmah ponudi promenu.
+     */
+    private City defaultCity() {
+        return cityRepository.findByCode(defaultCityCode)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Podrazumevan grad '" + defaultCityCode + "' ne postoji u tabeli cities"));
     }
 
     private String generateUniqueUsername(String email) {

@@ -2,6 +2,7 @@ package com.example.demo.dto;
 
 import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -40,4 +41,9 @@ public class AdminReportListDto {
     private Long ownerId;
 
     private String ownerName;
+
+    @Schema(description = "City the report belongs to, derived from its location zone. Absent for "
+            + "reports created before location became mandatory — those are invisible in user-facing "
+            + "search, which is exactly what this column makes visible to a moderator.")
+    private String cityName;
 }

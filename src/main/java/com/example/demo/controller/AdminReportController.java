@@ -34,14 +34,15 @@ public class AdminReportController {
 
     @GetMapping
     @Operation(summary = "Get reports for moderation",
-            description = "Returns all reports except deleted ones — every status (including flagged) and every owner, always with the exact location. The public GET /reports must not be used for moderation: it only returns ACTIVE reports, excludes the caller's own, and masks locations to zone level (a local community of about 1 km², or the city municipality where no finer unit exists).")
+            description = "Returns all reports except deleted ones — every status (including flagged) and every owner, always with the exact location. Optionally narrowed to one city; unlike app users, an admin has no city of their own and sees all of them by default. The public GET /reports must not be used for moderation: it only returns ACTIVE reports, excludes the caller's own, and masks locations to zone level (a local community of about 1 km², or the city municipality where no finer unit exists).")
     @ApiResponse(responseCode = "200", description = "Reports returned",
             content = @Content(mediaType = "application/json",
                     array = @ArraySchema(schema = @Schema(implementation = AdminReportListDto.class))))
     public ResponseEntity<List<AdminReportListDto>> getReports(
             @RequestParam(required = false) ReportType type,
-            @RequestParam(required = false) ReportStatus status) {
-        return ResponseEntity.ok(adminReportService.getReports(type, status));
+            @RequestParam(required = false) ReportStatus status,
+            @RequestParam(required = false) Long cityId) {
+        return ResponseEntity.ok(adminReportService.getReports(type, status, cityId));
     }
 
     @GetMapping("/{id}")

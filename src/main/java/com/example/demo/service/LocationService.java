@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.AutoCompleteSuggestionDTO;
 import com.example.demo.dto.locationiq.LocationIqAddress;
 import com.example.demo.dto.locationiq.LocationIqResult;
+import com.example.demo.model.City;
 import com.example.demo.model.Location;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,8 +23,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LocationService {
 
-    private static final String BELGRADE_VIEWBOX = "20.22,44.93,20.65,44.68";
-
     @Value("${locationiq.api-key}")
     private String apiKey;
 
@@ -34,13 +33,29 @@ public class LocationService {
     private String defaultCountry;
 
     private final RestTemplate restTemplate;
+    private final CityService cityService;
 
-    public List<AutoCompleteSuggestionDTO> getAutoCompleteSuggestions(String query) {
+    /**
+     * Predlozi adresa, ograniceni na grad koji korisnik trenutno pretrazuje.
+     *
+     * Okvir je unija granica zona nivoa 1 tog grada (racunata u V47), a ne rucno upisan
+     * pravougaonik: zatecena konstanta 20.22,44.93,20.65,44.68 pokrivala je samo urbano
+     * jezgro Beograda, pa adrese u Obrenovcu, Lazarevcu, Mladenovcu i Sopotu — preko polovine
+     * povrsine grada — pretraga nikada nije nalazila. Izvodenjem iz istih poligona koji cine
+     * zone nemoguce je da se okvir i zone raziđu, pa nema ni adrese koja se moze izabrati a
+     * posle nema zonu.
+     *
+     * LocationIQ trazi viewbox u redosledu min_lon,max_lat,max_lon,min_lat.
+     */
+    public List<AutoCompleteSuggestionDTO> getAutoCompleteSuggestions(String query, String userEmail) {
+        City city = cityService.getActiveCity(userEmail);
+        String viewbox = city.getBboxMinLongitude() + "," + city.getBboxMaxLatitude()
+                + "," + city.getBboxMaxLongitude() + "," + city.getBboxMinLatitude();
         String url = baseUrl + "/autocomplete"
                 + "?key=" + apiKey
                 + "&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
                 + "&countrycodes=" + defaultCountry
-                + "&viewbox=" + BELGRADE_VIEWBOX
+                + "&viewbox=" + viewbox
                 + "&bounded=1"
                 + "&limit=5";
         try {

@@ -1,5 +1,6 @@
 package com.example.demo.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -40,4 +41,10 @@ public class UserProfileDTO {
 
     @NotNull
     private String role;
+
+    @NotNull
+    @Schema(description = "City the user is currently browsing. Scopes search, the nearby feed and "
+            + "address lookup; does NOT scope the user's own reports, claims or notifications, so "
+            + "switching cities never hides your own listing or a claim awaiting your decision.")
+    private CityDto activeCity;
 }

@@ -18,8 +18,8 @@ public class ZoneService {
 
     /**
      * Najdublja zona koja sadrzi datu tacku — mesna zajednica ili naseljeno mesto ako
-     * postoji, inace gradska opstina — ili prazno ako tacka nije ni u jednoj poznatoj
-     * zoni (npr. lokacija van Beograda).
+     * postoji, inace jedinica nivoa 1 — ili prazno ako tacka nije ni u jednoj poznatoj zoni,
+     * odnosno ni u jednom gradu koji aplikacija pokriva.
      */
     @Transactional(readOnly = true)
     public Optional<Zone> resolveZone(BigDecimal latitude, BigDecimal longitude) {

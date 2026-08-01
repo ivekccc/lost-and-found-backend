@@ -10,10 +10,11 @@ import java.time.LocalDateTime;
 /**
  * Administrativna zona koja se koristi za javni, agregirani prikaz lokacije oglasa.
  *
- * Hijerarhija ima dva nivoa: {@code level = 1} je beogradska gradska opstina,
- * {@code level = 2} mesna zajednica ili naseljeno mesto. Razresavanje tacke bira
- * najdublju zonu koja je sadrzi (SQL funkcija {@code zone_resolve}), uz pad na nivo 1
- * tamo gde jedinica nivoa 2 ne postoji, pa je pokrivenost 100%.
+ * Hijerarhija ima dva nivoa. Sta je koji zavisi od grada: u Beogradu je {@code level = 1}
+ * gradska opstina, a u Novom Sadu i Bajinoj Basti — koji gradske opstine nemaju — ceo grad,
+ * odnosno opstina. {@code level = 2} je mesna zajednica ili naseljeno mesto. Razresavanje
+ * tacke bira najdublju zonu koja je sadrzi (SQL funkcija {@code zone_resolve}), uz pad na
+ * nivo 1 tamo gde jedinica nivoa 2 ne postoji, pa je pokrivenost 100%.
  *
  * NAMERNO nema polje za kolonu {@code boundary geometry(MultiPolygon, 4326)} —
  * geometrija se koristi samo iz SQL-a (ST_Covers u ZoneRepository), pa projektu
@@ -52,6 +53,15 @@ public class Zone {
 
     @Column(name = "city", nullable = false, length = 100)
     private String city;
+
+    /**
+     * Grad kome zona pripada. Obicna kolona, ne {@code @ManyToOne City}, iz istog razloga
+     * kao {@code parentId}: klasa je {@code @Data}, pa bi asocijacija uvukla LAZY proxy u
+     * {@code toString()} i pucala van transakcije. Ime grada za prikaz stoji u
+     * denormalizovanoj koloni {@code city}.
+     */
+    @Column(name = "city_id", nullable = false)
+    private Long cityId;
 
     @Column(name = "centroid_latitude", nullable = false, precision = 10, scale = 8)
     private BigDecimal centroidLatitude;

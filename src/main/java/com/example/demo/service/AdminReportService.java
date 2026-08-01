@@ -36,11 +36,13 @@ public class AdminReportService {
      * ACTIVE i izbacuje oglase samog pozivaoca, pa FLAGGED oglasi tamo nisu vidljivi.
      */
     @Transactional(readOnly = true)
-    public List<AdminReportListDto> getReports(ReportType type, ReportStatus status) {
+    public List<AdminReportListDto> getReports(ReportType type, ReportStatus status, Long cityId) {
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.statusNot(ReportStatus.DELETED),
                 ReportSpecifications.hasType(type),
-                ReportSpecifications.hasStatus(status)
+                ReportSpecifications.hasStatus(status),
+                ReportSpecifications.inCity(cityId),
+                ReportSpecifications.withLocationZone()
         );
 
         return reportRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt")).stream()
@@ -58,8 +60,21 @@ public class AdminReportService {
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),
                 report.getUser().getId(),
-                buildFullName(report.getUser())
+                buildFullName(report.getUser()),
+                cityNameOf(report)
         );
+    }
+
+    /**
+     * Ime grada iz zone lokacije. Prazno je smislen odgovor, ne greska: oglas bez lokacije ili
+     * bez razresene zone nema grad, a moderator bas to treba da vidi — takav oglas je korisniku
+     * nevidljiv u pretrazi.
+     */
+    private String cityNameOf(Report report) {
+        if (report.getLocation() == null || report.getLocation().getZone() == null) {
+            return null;
+        }
+        return report.getLocation().getZone().getCity();
     }
 
     public AdminReportDetailsDTO getReportById(Long id) {
