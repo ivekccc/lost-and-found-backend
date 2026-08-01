@@ -92,4 +92,10 @@ public class ReportDetailsDTO {
     private Boolean reported;
 
     private ReportZoneDto zone;
+
+    @NotNull
+    @Schema(description = "Whether the caller has this listing saved for later. The client needs it "
+            + "up front to show the right menu entry — offering \"Save\" on something already saved "
+            + "is the same defect as offering an action the server would reject.")
+    private Boolean saved;
 }

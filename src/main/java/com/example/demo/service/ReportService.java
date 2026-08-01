@@ -14,11 +14,13 @@ import com.example.demo.repository.ReportCategoryRepository;
 import com.example.demo.repository.ReportImageRepository;
 import com.example.demo.repository.ReportRepository;
 import com.example.demo.repository.ReportSpecifications;
+import com.example.demo.repository.SavedReportRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +59,7 @@ public class ReportService {
     private final ClaimService claimService;
     private final ReportImageRepository reportImageRepository;
     private final CloudinaryService cloudinaryService;
+    private final SavedReportRepository savedReportRepository;
     private final ZoneService zoneService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -403,6 +406,86 @@ public class ReportService {
                 .toList();
     }
 
+    /**
+     * Odlaganje tudjeg oglasa za kasnije.
+     *
+     * Idempotentno je namerno: dvostruki dodir, ponovljen zahtev posle prekida veze ili dva
+     * uredjaja ne smeju da naprave dva reda niti da vrate gresku. Jedinstveni indeks u V49
+     * je odbrana u dubinu za dve istovremene transakcije, gde provera i upis mogu da se
+     * preklope.
+     *
+     * Sopstveni oglas se odbija: vec stoji u „My Reports", pa bi cuvanje napravilo drugu
+     * listu istih oglasa. Oglas koji pozivalac ne sme da vidi daje 404, po istoj konvenciji
+     * kao {@code getReportById} — postojanje tudjeg sakrivenog oglasa se ne odaje.
+     */
+    @Transactional
+    public void saveReport(Long reportId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Report report = findVisibleReport(reportId, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+
+        if (report.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Your own reports are already in My Reports");
+        }
+        if (savedReportRepository.existsByUserIdAndReportId(user.getId(), reportId)) {
+            return;
+        }
+
+        SavedReport saved = new SavedReport();
+        saved.setUser(user);
+        saved.setReport(report);
+        try {
+            savedReportRepository.saveAndFlush(saved);
+        } catch (DataIntegrityViolationException alreadySaved) {
+        }
+    }
+
+    /**
+     * Uklanjanje iz sacuvanih. Idempotentno — brise se i kad reda nema, jer je ishod isti.
+     */
+    @Transactional
+    public void unsaveReport(Long reportId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        savedReportRepository.deleteByUserIdAndReportId(user.getId(), reportId);
+    }
+
+    /**
+     * Sacuvani oglasi, najnoviji prvo.
+     *
+     * NAMERNO bez filtera po gradu. Sacuvan oglas je korisnikova stvar, kao „My Reports" i
+     * Inbox — promena grada ne sme da sakrije nesto sto je sam odlozio. Filter po gradu
+     * ogranicava PRETRAGU, ne vlasnistvo.
+     */
+    @Transactional(readOnly = true)
+    public List<ReportListDTO> getSavedReports(String userEmail) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<Report> reports = savedReportRepository.findSavedReports(currentUser.getId());
+        Set<Long> reportedIds = findReportedIds(reports);
+        return reports.stream()
+                .map(report -> toListDTO(report, currentUser, reportedIds, null))
+                .toList();
+    }
+
+    /**
+     * Oglas koji pozivalac sme da vidi: obrisan ne postoji ni za koga, a sakriven moderacijom
+     * postoji samo svom vlasniku.
+     *
+     * Pravilo zivi na JEDNOM mestu i koriste ga i {@code getReportById} i cuvanje. Ranije je
+     * stajalo samo u prvom, pa bi svaka izmena morala rucno da se prenese na drugo mesto —
+     * greska koju je projekat vec platio razlazenjem razresavanja zone (V34 protiv upita u
+     * repozitorijumu), zbog cega V40 uopste postoji.
+     */
+    private Optional<Report> findVisibleReport(Long reportId, User viewer) {
+        return reportRepository.findById(reportId)
+                .filter(report -> report.getStatus() != ReportStatus.DELETED)
+                .filter(report -> report.getStatus() != ReportStatus.FLAGGED
+                        || report.getUser().getId().equals(viewer.getId()));
+    }
+
     private Set<Long> findReportedIds(List<Report> reports) {
         if (reports.isEmpty()) {
             return Set.of();
@@ -417,10 +500,7 @@ public class ReportService {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return reportRepository.findById(id)
-                .filter(report -> report.getStatus() != ReportStatus.DELETED)
-                .filter(report -> report.getStatus() != ReportStatus.FLAGGED
-                        || report.getUser().getId().equals(currentUser.getId()))
+        return findVisibleReport(id, currentUser)
                 .map(report -> toDetailsDTO(report, currentUser,
                         abuseReportRepository.countByTargetReportIdAndStatus(report.getId(), AbuseReportStatus.PENDING)
                                 >= REPORT_VISIBILITY_THRESHOLD));
@@ -563,7 +643,8 @@ public class ReportService {
                 myClaims.size(),
                 ClaimService.MAX_ATTEMPTS_PER_CHALLENGE,
                 reported,
-                describeZoneOf(report).orElse(null)
+                describeZoneOf(report).orElse(null),
+                savedReportRepository.existsByUserIdAndReportId(viewer.getId(), report.getId())
         );
     }
 

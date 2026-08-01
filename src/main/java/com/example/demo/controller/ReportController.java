@@ -9,6 +9,7 @@ import com.example.demo.model.ReportType;
 import com.example.demo.service.ReportMatchService;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -55,6 +56,47 @@ public class ReportController {
     public ResponseEntity<List<ReportListDTO>> getMyReports(@AuthenticationPrincipal UserDetails userDetails) {
         List<ReportListDTO> reports = reportService.getMyReports(userDetails.getUsername());
         return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/saved")
+    @Operation(summary = "Get saved reports",
+            description = "Listings the caller bookmarked for later, newest first. Deliberately NOT "
+                    + "scoped to the caller's city — a saved listing is theirs, like their own reports, "
+                    + "and switching cities must not hide something they set aside. Listings that were "
+                    + "deleted or hidden by moderation drop out, since opening them would 404.")
+    @ApiResponse(responseCode = "200", description = "Saved reports returned",
+            content = @Content(mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = ReportListDTO.class))))
+    public ResponseEntity<List<ReportListDTO>> getSavedReports(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.getSavedReports(userDetails.getUsername()));
+    }
+
+    @PostMapping("/{id}/save")
+    @Operation(summary = "Save a report for later",
+            description = "Idempotent: saving something already saved succeeds and changes nothing, so "
+                    + "a double tap or a retried request cannot produce duplicates. You cannot save your "
+                    + "own listing — it is already in My Reports.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Saved"),
+            @ApiResponse(responseCode = "400", description = "Own listing"),
+            @ApiResponse(responseCode = "404", description = "No such report, or not visible to you")
+    })
+    public ResponseEntity<Void> saveReport(@PathVariable Long id,
+                                           @AuthenticationPrincipal UserDetails userDetails) {
+        reportService.saveReport(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/save")
+    @Operation(summary = "Remove a report from saved",
+            description = "Idempotent: succeeds even when the listing was not saved, because the outcome "
+                    + "is the same either way.")
+    @ApiResponse(responseCode = "204", description = "Removed from saved")
+    public ResponseEntity<Void> unsaveReport(@PathVariable Long id,
+                                             @AuthenticationPrincipal UserDetails userDetails) {
+        reportService.unsaveReport(id, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/nearby")
