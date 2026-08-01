@@ -113,6 +113,11 @@ public class AdminReportService {
     }
 
     private ReportStatus restoredStatusFor(Report report) {
+        // Spajanje se pamti kolonom, ne statusom — flag ga je pregazio. Bez ove provere bi
+        // moderacija tiho ponistila vracenu stvar i izbacila je iz statistike zajednice.
+        if (report.getResolvedAt() != null) {
+            return ReportStatus.RESOLVED;
+        }
         // Uslov na tip prati ClaimService.approveClaim: odobren claim zatvara samo PRONADJEN
         // oglas. Bez njega bi unflag vratio MATCHED na izgubljeni oglas i time ponistio
         // zastitu koja sprecava da trece lice zatvori tudji oglas.

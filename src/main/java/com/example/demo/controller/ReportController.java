@@ -6,6 +6,7 @@ import com.example.demo.dto.NearbyReportDTO;
 import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.model.ReportType;
+import com.example.demo.model.TimeWindow;
 import com.example.demo.service.ReportMatchService;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,10 +54,11 @@ public class ReportController {
     public ResponseEntity<List<ReportListDTO>> getReports(
             @RequestParam(required = false) ReportType type,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) TimeWindow postedWithin,
             @RequestParam(required = false) String search,
             @AuthenticationPrincipal UserDetails userDetails) {
         List<ReportListDTO> reports = reportService.getReports(
-                type, categoryId, search, userDetails.getUsername());
+                type, categoryId, postedWithin, search, userDetails.getUsername());
         return ResponseEntity.ok(reports);
     }
 
@@ -184,6 +186,28 @@ public class ReportController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(reportService.closeReport(id, userDetails.getUsername()));
+    }
+
+    @PostMapping("/{id}/resolve")
+    @Operation(summary = "Mark a report as reunited",
+            description = "The owner confirms the item is back with its owner. This is the only "
+                    + "path to RESOLVED, and the only outcome counted as a successful reunion — "
+                    + "closing a listing without getting the item back stays MATCHED so the number "
+                    + "is not inflated. Allowed from active and closed listings, since approving a "
+                    + "claim often closes a found listing before the handover happens. Any claims "
+                    + "still awaiting a decision are declined, and whoever had an approved claim is "
+                    + "notified.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Marked as reunited",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportDetailsDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Report is not active or closed"),
+            @ApiResponse(responseCode = "404", description = "No such report, or not yours")
+    })
+    public ResponseEntity<ReportDetailsDTO> resolveReport(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.resolveReport(id, userDetails.getUsername()));
     }
 
     @PostMapping("/{id}/reopen")

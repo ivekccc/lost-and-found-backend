@@ -63,6 +63,7 @@ public class ReportService {
     private final ReportImageRepository reportImageRepository;
     private final CloudinaryService cloudinaryService;
     private final SavedReportRepository savedReportRepository;
+    private final NotificationService notificationService;
     private final ZoneService zoneService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -166,15 +167,77 @@ public class ReportService {
 
         Report report = ownedReport(id, user);
 
-        if (report.getStatus() != ReportStatus.MATCHED) {
-            throw new IllegalArgumentException("Only a closed report can be reopened");
+        if (report.getStatus() != ReportStatus.MATCHED
+                && report.getStatus() != ReportStatus.RESOLVED) {
+            throw new IllegalArgumentException("Only a closed or reunited report can be reopened");
         }
 
         report.setStatus(ReportStatus.ACTIVE);
         report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
+        // Oznaka spajanja se BRISE: oglas koji je ponovo u pretrazi ocigledno nije spojen, a
+        // ostavljen `resolvedAt` bi ga zauvek drzao u statistici zajednice kao vracenu stvar.
+        report.setResolvedAt(null);
         reportRepository.save(report);
 
         return toDetailsDTO(report, user, false);
+    }
+
+    /**
+     * Vlasnik potvrdjuje da je stvar spojena sa njim.
+     *
+     * Ovo je jedini nacin da oglas dodje u RESOLVED — status koji je do sada postojao u modelu
+     * a nista ga nije postavljalo, pa aplikacija nije znala svoj najvazniji ishod.
+     *
+     * Razdvojeno od {@link #closeReport}: nije svako zatvaranje spajanje. Ko odustane od
+     * trazenja zatvara oglas u MATCHED i NE ulazi u statistiku zajednice; ko je stvar zaista
+     * dobio nazad oznacava spajanje. Da su to dve strane istog dugmeta, cifra „vraceno" bi
+     * brojala i one koji su digli ruke.
+     *
+     * Oznacava se SVOJ oglas — vlasnik izgubljenog kad dobije stvar, nalazac pronadjenog kad
+     * je preda. Dosledno odluci iz A1: trece lice ne menja tudj oglas.
+     *
+     * Dozvoljeno i iz MATCHED, ne samo iz ACTIVE: cest put je da odobravanje claim-a prvo
+     * prebaci pronadjen oglas u MATCHED, pa tek onda dodje do primopredaje.
+     */
+    @Transactional
+    public ReportDetailsDTO resolveReport(Long id, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Report report = ownedReport(id, user);
+
+        if (report.getStatus() != ReportStatus.ACTIVE
+                && report.getStatus() != ReportStatus.MATCHED) {
+            throw new IllegalArgumentException("Only an active or closed report can be marked reunited");
+        }
+
+        report.setStatus(ReportStatus.RESOLVED);
+        report.setResolvedAt(LocalDateTime.now());
+        reportRepository.save(report);
+
+        // Isti razlog kao kod zatvaranja: approveClaim trazi ACTIVE, pa bi claim koji ceka
+        // ostao PENDING zauvek i podnosilac bi bez objasnjenja gledao „Pending review".
+        claimService.declinePendingClaimsForReport(report.getId());
+        notifyResolved(report);
+
+        return toDetailsDTO(report, user, false);
+    }
+
+    /**
+     * Javlja spajanje osobi ciji je claim na ovom oglasu odobren — jedinom coveku koga se
+     * ishod tice, a nije vlasnik.
+     *
+     * Ako odobrenog claim-a nema, notifikacije nema: cutanje je tacnije od poruke nikome.
+     */
+    private void notifyResolved(Report report) {
+        for (Claim claim : claimRepository.findByReportIdAndStatus(report.getId(), ClaimStatus.APPROVED)) {
+            notificationService.createNotification(
+                    claim.getClaimant().getId(),
+                    NotificationType.REPORT_RESOLVED,
+                    "Reunited",
+                    "\"" + report.getTitle() + "\" was marked as reunited with its owner. Thanks for your help.",
+                    "{\"reportId\":" + report.getId() + "}");
+        }
     }
 
     /**
@@ -258,8 +321,8 @@ public class ReportService {
 
 
     @Transactional(readOnly = true)
-    public List<ReportListDTO> getReports(ReportType type, Long categoryId, String search,
-                                          String userEmail) {
+    public List<ReportListDTO> getReports(ReportType type, Long categoryId, TimeWindow postedWithin,
+                                          String search, String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -269,6 +332,7 @@ public class ReportService {
                 ReportSpecifications.inCity(currentUser.getActiveCity().getId()),
                 ReportSpecifications.hasType(type),
                 ReportSpecifications.hasCategory(categoryId),
+                ReportSpecifications.postedWithin(postedWithin),
                 ReportSpecifications.textContains(search),
                 ReportSpecifications.withLocationZone()
         );

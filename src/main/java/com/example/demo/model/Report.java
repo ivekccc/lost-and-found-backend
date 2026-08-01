@@ -48,6 +48,13 @@ public class Report {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    /**
+     * Kada je vlasnik oznacio da je stvar spojena sa njim. Vidi V50 zasto je trenutak, a ne
+     * samo status: statistika pita KADA, a moderacija bi status pregazila.
+     */
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

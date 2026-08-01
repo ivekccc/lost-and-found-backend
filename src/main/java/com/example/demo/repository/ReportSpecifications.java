@@ -3,8 +3,11 @@ package com.example.demo.repository;
 import com.example.demo.model.Report;
 import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
+import com.example.demo.model.TimeWindow;
 import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
+
+import java.time.LocalDateTime;
 
 public final class ReportSpecifications {
 
@@ -23,6 +26,21 @@ public final class ReportSpecifications {
             return Specification.unrestricted();
         }
         return (root, query, builder) -> builder.equal(root.get("category").get("id"), categoryId);
+    }
+
+    /**
+     * Oglasi objavljeni unutar datog prozora.
+     *
+     * Granica se racuna u trenutku poziva, ne jednom pri pokretanju: „poslednja 24 h" mora da
+     * znaci 24 h od SADA. Posledica koju vredi znati: isti filter posle ponoci vraca drugaciji
+     * skup, pa rezultat nije stabilan kroz vreme.
+     */
+    public static Specification<Report> postedWithin(TimeWindow window) {
+        if (window == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, builder) -> builder.greaterThanOrEqualTo(
+                root.get("createdAt"), LocalDateTime.now().minusDays(window.getDays()));
     }
 
     public static Specification<Report> statusNot(ReportStatus status) {
