@@ -64,4 +64,22 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
                                                  @Param("ownerId") Long ownerId,
                                                  @Param("probeText") String probeText,
                                                  @Param("cityId") Long cityId);
+
+    /**
+     * Sta je jedan grad uradio otkako aplikacija postoji, oba broja jednim prolazom.
+     *
+     * Spojenost se cita iz {@code resolved_at IS NOT NULL}, a NE iz {@code status = 'RESOLVED'} —
+     * moderacija prepisuje status (AdminReportService.restoredStatusFor), pa bi ciklus flag/unflag
+     * tiho ponistio spajanje. Grad ide kroz zonu lokacije, isti izvor po kome se filtriraju
+     * pretraga, nearby i kandidati za mecovanje.
+     */
+    @Query(value = "SELECT COUNT(*) AS reportsPosted, "
+            + "COUNT(*) FILTER (WHERE r.resolved_at IS NOT NULL) AS reportsReunited "
+            + "FROM reports r "
+            + "JOIN locations l ON l.id = r.location_id "
+            + "JOIN zones z ON z.id = l.zone_id "
+            + "WHERE z.city_id = :cityId "
+            + "AND r.status NOT IN ('DELETED', 'FLAGGED')",
+            nativeQuery = true)
+    CommunityStatisticsView findCommunityStatistics(@Param("cityId") Long cityId);
 }

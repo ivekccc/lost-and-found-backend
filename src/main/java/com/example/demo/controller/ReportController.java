@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.CommunityStatisticsDto;
 import com.example.demo.dto.CreateReportRequestDto;
 import com.example.demo.dto.MatchDto;
 import com.example.demo.dto.NearbyReportDTO;
@@ -7,6 +8,7 @@ import com.example.demo.dto.ReportDetailsDTO;
 import com.example.demo.dto.ReportListDTO;
 import com.example.demo.model.ReportType;
 import com.example.demo.model.TimeWindow;
+import com.example.demo.service.CommunityStatisticsService;
 import com.example.demo.service.ReportMatchService;
 import com.example.demo.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,6 +34,7 @@ import java.util.List;
 public class ReportController {
     private final ReportService reportService;
     private final ReportMatchService reportMatchService;
+    private final CommunityStatisticsService communityStatisticsService;
 
     @PostMapping
     @Operation(summary = "Create report", description = "Creates a new lost or found report")
@@ -127,6 +130,29 @@ public class ReportController {
         List<NearbyReportDTO> reports = reportService.getNearbyReports(
                 latitude, longitude, radiusKm, userDetails.getUsername());
         return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/statistics")
+    @Operation(summary = "What the caller's city has done so far",
+            description = "Counts for the city the caller is currently browsing: listings posted and "
+                    + "listings their owner marked reunited, over the whole history rather than a "
+                    + "recent window. Returns no content when the city has fewer reunions than the "
+                    + "configured minimum, which is a normal answer rather than an error — a strip "
+                    + "reading \"0 reunited\" argues that the app does not work, so the decision to "
+                    + "stay silent is made here rather than in each client screen. Reunions are "
+                    + "counted per listing, not per object: both sides of one reunion close their "
+                    + "own listing, so the same object can count twice.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Statistics for the caller's active city",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = CommunityStatisticsDto.class))),
+            @ApiResponse(responseCode = "204", description = "Too little activity to be worth showing")
+    })
+    public ResponseEntity<CommunityStatisticsDto> getCommunityStatistics(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return communityStatisticsService.getForActiveCity(userDetails.getUsername())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @GetMapping("/{id}/matches")
