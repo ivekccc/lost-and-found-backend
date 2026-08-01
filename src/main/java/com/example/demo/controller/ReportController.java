@@ -42,12 +42,21 @@ public class ReportController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all reports", description = "Returns active reports from other users (the caller's own reports are excluded)")
+    @Operation(summary = "Get all reports",
+            description = "Active listings from other users in the caller's city, newest first. "
+                    + "The search term is matched against both the title and the description, since the "
+                    + "description is where colour, brand and the details that actually identify an item "
+                    + "are written. All filters are optional and combine as an intersection.")
+    @ApiResponse(responseCode = "200", description = "Reports returned",
+            content = @Content(mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = ReportListDTO.class))))
     public ResponseEntity<List<ReportListDTO>> getReports(
             @RequestParam(required = false) ReportType type,
+            @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String search,
             @AuthenticationPrincipal UserDetails userDetails) {
-        List<ReportListDTO> reports = reportService.getReports(type, search, userDetails.getUsername());
+        List<ReportListDTO> reports = reportService.getReports(
+                type, categoryId, search, userDetails.getUsername());
         return ResponseEntity.ok(reports);
     }
 

@@ -18,6 +18,13 @@ public final class ReportSpecifications {
         return (root, query, builder) -> builder.equal(root.get("type"), type);
     }
 
+    public static Specification<Report> hasCategory(Long categoryId) {
+        if (categoryId == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, builder) -> builder.equal(root.get("category").get("id"), categoryId);
+    }
+
     public static Specification<Report> statusNot(ReportStatus status) {
         if (status == null) {
             return Specification.unrestricted();
@@ -83,11 +90,27 @@ public final class ReportSpecifications {
         };
     }
 
-    public static Specification<Report> titleContains(String search) {
+    /**
+     * Pojam se trazi u naslovu ILI u opisu.
+     *
+     * Ranije se zvala {@code titleContains} i gledala samo naslov, pa „crni kozni novcanik"
+     * nije nalazilo oglas naslovljen „Izgubljen novcanik" sa tim opisom — a opis je mesto na
+     * kom stoje boja, marka i sve po cemu se stvar zaista prepoznaje.
+     *
+     * Namerno {@code LIKE}, a ne {@code pg_trgm} similarity (koju matching engine koristi):
+     * „sadrzi" je predvidivo i radi na delu reci, dok similarity uvodi prag koji se podesava
+     * i menja znacenje pretrage iz „nadji" u „rangiraj".
+     *
+     * Ostaje ograniceno: {@code lower()} ne izjednacava dijakritike, pa „novcanik" i dalje ne
+     * nalazi „novcanik" sa kvacicom. Za to treba {@code unaccent} prosirenje.
+     */
+    public static Specification<Report> textContains(String search) {
         if (search == null || search.isBlank()) {
             return Specification.unrestricted();
         }
         String pattern = "%" + search.trim().toLowerCase() + "%";
-        return (root, query, builder) -> builder.like(builder.lower(root.get("title")), pattern);
+        return (root, query, builder) -> builder.or(
+                builder.like(builder.lower(root.get("title")), pattern),
+                builder.like(builder.lower(root.get("description")), pattern));
     }
 }

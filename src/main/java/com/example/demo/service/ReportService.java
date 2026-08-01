@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,8 @@ public class ReportService {
     private static final int NEARBY_RESULT_LIMIT = 20;
 
     private static final double NEARBY_MAX_RADIUS_KM = 50;
+
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
     private final ReportRepository reportRepository;
     private final ReportCategoryRepository reportCategoryRepository;
@@ -255,7 +258,8 @@ public class ReportService {
 
 
     @Transactional(readOnly = true)
-    public List<ReportListDTO> getReports(ReportType type, String search, String userEmail) {
+    public List<ReportListDTO> getReports(ReportType type, Long categoryId, String search,
+                                          String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -264,11 +268,15 @@ public class ReportService {
                 ReportSpecifications.userIdNotEquals(currentUser.getId()),
                 ReportSpecifications.inCity(currentUser.getActiveCity().getId()),
                 ReportSpecifications.hasType(type),
-                ReportSpecifications.titleContains(search),
+                ReportSpecifications.hasCategory(categoryId),
+                ReportSpecifications.textContains(search),
                 ReportSpecifications.withLocationZone()
         );
 
-        List<Report> reports = reportRepository.findAll(spec);
+        // Najnoviji prvo. Bez izricitog Sort-a poredak je bio onaj koji baza zatekne, pa je
+        // isti upit dvaput mogao dati razlicit raspored, a najsveziji oglas — za izgubljenu
+        // stvar najvredniji — zavrsavao bilo gde u listi.
+        List<Report> reports = reportRepository.findAll(spec, NEWEST_FIRST);
         Set<Long> reportedIds = findReportedIds(reports);
         return reports.stream()
                 .map(report -> toListDTO(report, currentUser, reportedIds, null))
@@ -396,7 +404,7 @@ public class ReportService {
                 ReportSpecifications.userIdEquals(currentUser.getId())
         );
 
-        List<Report> reports = reportRepository.findAll(spec);
+        List<Report> reports = reportRepository.findAll(spec, NEWEST_FIRST);
         Set<Long> reportedIds = findReportedIds(reports);
         Map<Long, Long> matchCounts = reportMatchService.getMatchCounts(
                 reports.stream().map(Report::getId).toList());
