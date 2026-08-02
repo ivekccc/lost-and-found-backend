@@ -17,11 +17,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class LocationService {
+
+    // Trazi se vise kandidata nego sto se prikazuje, jer filter po zoni odbacuje deo njih.
+    // Bez toga bi pretraga u prigradskim delovima cesto vracala jedan predlog ili nijedan.
+    private static final int CANDIDATE_LIMIT = 15;
+    private static final int SUGGESTION_LIMIT = 5;
 
     @Value("${locationiq.api-key}")
     private String apiKey;
@@ -46,6 +50,16 @@ public class LocationService {
      * posle nema zonu.
      *
      * LocationIQ trazi viewbox u redosledu min_lon,max_lat,max_lon,min_lat.
+     *
+     * Okvir je i dalje PRAVOUGAONIK, a gradovi to nisu: okvir Beograda preko Dunava zahvata
+     * Pancevo, Staru Pazovu i Rumu. Zato se predlozi posle dohvatanja propustaju kroz zone —
+     * inace korisnik dobije adresu koju izabere, popuni celu formu, pa ga createReport odbije
+     * sa 400. To je obrazac „dugme koje vodi u 400", isti bag kao da zastite nema.
+     *
+     * Provera ide kroz {@code CityService.detectCity}, koji unutra zove istu {@code zone_resolve}
+     * funkciju kojom se oglasu dodeljuje zona. To je nosivi deo: filter i kasniji gard ne mogu
+     * da se raziđu, ukljucujuci i toleranciju tira 3 (~333 m van granice grada) — adresa koju
+     * bi server prihvatio prolazi i kroz filter.
      */
     public List<AutoCompleteSuggestionDTO> getAutoCompleteSuggestions(String query, String userEmail) {
         City city = cityService.getActiveCity(userEmail);
@@ -57,19 +71,41 @@ public class LocationService {
                 + "&countrycodes=" + defaultCountry
                 + "&viewbox=" + viewbox
                 + "&bounded=1"
-                + "&limit=5";
+                + "&limit=" + CANDIDATE_LIMIT;
         try {
             LocationIqResult[] results = restTemplate.getForObject(url, LocationIqResult[].class);
             if (results == null || results.length == 0) {
                 return Collections.emptyList();
             }
+            // Stream je lenj, pa se zona razresava samo dok se ne skupi SUGGESTION_LIMIT
+            // predloga — u praksi 5-6 upita, ne svih CANDIDATE_LIMIT.
             return Arrays.stream(results)
+                    .filter(result -> liesInCity(result, city))
+                    .limit(SUGGESTION_LIMIT)
                     .map(this::toAutoCompleteDTO)
-                    .collect(Collectors.toList());
+                    .toList();
         } catch (HttpClientErrorException.TooManyRequests | HttpClientErrorException.NotFound e) {
             return Collections.emptyList();
         } catch (Exception e) {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
+        }
+    }
+
+    private boolean liesInCity(LocationIqResult result, City city) {
+        if (result.getLat() == null || result.getLon() == null) {
+            return false;
+        }
+        try {
+            return cityService
+                    .detectCity(Double.parseDouble(result.getLat()),
+                            Double.parseDouble(result.getLon()))
+                    .map(detected -> detected.getId().equals(city.getId()))
+                    .orElse(false);
+        } catch (IllegalArgumentException e) {
+            // Pokriva i neparsivu vrednost i koordinatu van opsega, koju detectCity odbija istim
+            // tipom izuzetka. Bez ovoga bi neispravan red iz LocationIQ-a prosao do catch-all
+            // bloka iznad i ceo upit vratio 500 umesto da se taj jedan predlog preskoci.
+            return false;
         }
     }
 
