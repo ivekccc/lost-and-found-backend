@@ -48,10 +48,15 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
      * nije dovoljno: Bajina Basta je od susednih opstina bliza od 25 km, pa bi bez ovoga
      * korisnik dobio mec sa oglasom iz podrucja koje ni ne pretrazuje i ne moze da otvori.
      * Grad se cita iz zone lokacije, sto je isti izvor po kome se filtrira i pretraga.
+     *
+     * Tekst se pre poredjenja presavija kroz {@code unaccent}, isto kao u pretrazi. Bez toga
+     * „novcanik" i „novčanik" nisu isti niz trigrama, pa dva oglasa o istoj stvari gube deo
+     * tekstualnog skora samo zato sto je jedan vlasnik kucao sa kvacicama a drugi bez.
      */
     @Query(value = "SELECT r.id AS id, r.created_at AS createdAt, "
             + "l.latitude AS latitude, l.longitude AS longitude, "
-            + "similarity(lower(:probeText), lower(r.title || ' ' || COALESCE(r.description, ''))) AS similarity "
+            + "similarity(unaccent(lower(:probeText)), "
+            + "           unaccent(lower(r.title || ' ' || COALESCE(r.description, '')))) AS similarity "
             + "FROM reports r "
             + "JOIN locations l ON l.id = r.location_id "
             + "JOIN zones z ON z.id = l.zone_id "

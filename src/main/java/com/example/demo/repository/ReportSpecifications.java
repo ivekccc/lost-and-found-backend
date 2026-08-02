@@ -5,6 +5,8 @@ import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
 import com.example.demo.model.TimeWindow;
 import com.example.demo.model.Zone;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Path;
 import org.springframework.data.jpa.domain.Specification;
@@ -147,16 +149,31 @@ public final class ReportSpecifications {
      * „sadrzi" je predvidivo i radi na delu reci, dok similarity uvodi prag koji se podesava
      * i menja znacenje pretrage iz „nadji" u „rangiraj".
      *
-     * Ostaje ograniceno: {@code lower()} ne izjednacava dijakritike, pa „novcanik" i dalje ne
-     * nalazi „novcanik" sa kvacicom. Za to treba {@code unaccent} prosirenje.
+     * Dijakritika se presavija kroz {@code unaccent} (V51), pa „novcanik" nalazi i „novčanik".
+     * Presavijanje radi iskljucivo baza, i nad kolonom i nad pojmom: da se pojam presavija u
+     * Javi, {@code java.text.Normalizer} bi razdvojio slova sa akcentom ali NE i „đ", koje je
+     * zaseban znak (U+0111) — pa bi „djak" i „đak" i dalje bili dve razlicite stvari.
      */
     public static Specification<Report> textContains(String search) {
         if (search == null || search.isBlank()) {
             return Specification.unrestricted();
         }
         String pattern = "%" + search.trim().toLowerCase() + "%";
-        return (root, query, builder) -> builder.or(
-                builder.like(builder.lower(root.get("title")), pattern),
-                builder.like(builder.lower(root.get("description")), pattern));
+        return (root, query, builder) -> {
+            Expression<String> foldedPattern =
+                    unaccented(builder, builder.literal(pattern));
+            return builder.or(
+                    builder.like(
+                            unaccented(builder, builder.lower(root.get("title"))),
+                            foldedPattern),
+                    builder.like(
+                            unaccented(builder, builder.lower(root.get("description"))),
+                            foldedPattern));
+        };
+    }
+
+    private static Expression<String> unaccented(CriteriaBuilder builder,
+                                                 Expression<String> value) {
+        return builder.function("unaccent", String.class, value);
     }
 }
