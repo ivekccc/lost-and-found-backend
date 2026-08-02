@@ -1,13 +1,42 @@
 package com.example.demo.repository;
 
 import com.example.demo.model.Zone;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ZoneRepository extends JpaRepository<Zone, Long> {
+
+    List<Zone> findByCityIdAndLevelOrderByNameAsc(Long cityId, short level);
+
+    /**
+     * Zone jednog nivoa u jednom gradu, opciono sazete na decu jedne oblasti i opciono
+     * pretrazene po imenu.
+     *
+     * Pretraga ide kroz {@code unaccent} sa OBE strane. Bez toga bi ovaj meni imao losiju
+     * pretragu od postojeceg {@code Picker}-a, koji trazi lokalno i presavija dijakritiku —
+     * „zarkovo" ne bi naslo „Zarkovo". Presavijanje radi iskljucivo baza; da se pojam
+     * presavija u Javi, dve implementacije bi se razisle bas na „đ", koje nije slovo sa
+     * akcentom nego zaseban znak i {@code java.text.Normalizer} ga ne dira.
+     *
+     * Izostavljena pretraga stize kao {@code %}, a ne kao null: Hibernate ne ume da otipizuje
+     * null parametar unutar {@code FUNCTION('unaccent', :search)}, pa bi grana
+     * {@code :search IS NULL} rusila upit umesto da ga preskoci.
+     */
+    @Query("SELECT z FROM Zone z WHERE z.cityId = :cityId AND z.level = :level "
+            + "AND (:parentId IS NULL OR z.parentId = :parentId) "
+            + "AND LOWER(FUNCTION('unaccent', z.name)) LIKE LOWER(FUNCTION('unaccent', :search)) "
+            + "ORDER BY z.name")
+    Page<Zone> findFilterZones(@Param("cityId") Long cityId,
+                               @Param("level") short level,
+                               @Param("parentId") Long parentId,
+                               @Param("search") String search,
+                               Pageable pageable);
 
     /**
      * Najdublja zona koja geometrijski sadrzi datu tacku: mesna zajednica ako postoji,

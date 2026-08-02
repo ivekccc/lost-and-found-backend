@@ -50,7 +50,10 @@ public class ReportController {
             description = "Active listings from other users in the caller's city, newest first. "
                     + "The search term is matched against both the title and the description, since the "
                     + "description is where colour, brand and the details that actually identify an item "
-                    + "are written. All filters are optional and combine as an intersection.")
+                    + "are written. All filters are optional and combine as an intersection. zoneId "
+                    + "narrows to a part of the city and takes either level: given a municipality it "
+                    + "also returns listings that resolved to a local community inside it, which is "
+                    + "most of them.")
     @ApiResponse(responseCode = "200", description = "Reports returned",
             content = @Content(mediaType = "application/json",
                     array = @ArraySchema(schema = @Schema(implementation = ReportListDTO.class))))
@@ -59,9 +62,10 @@ public class ReportController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) TimeWindow postedWithin,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long zoneId,
             @AuthenticationPrincipal UserDetails userDetails) {
         List<ReportListDTO> reports = reportService.getReports(
-                type, categoryId, postedWithin, search, userDetails.getUsername());
+                type, categoryId, postedWithin, search, zoneId, userDetails.getUsername());
         return ResponseEntity.ok(reports);
     }
 

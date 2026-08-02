@@ -322,7 +322,7 @@ public class ReportService {
 
     @Transactional(readOnly = true)
     public List<ReportListDTO> getReports(ReportType type, Long categoryId, TimeWindow postedWithin,
-                                          String search, String userEmail) {
+                                          String search, Long zoneId, String userEmail) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -334,6 +334,7 @@ public class ReportService {
                 ReportSpecifications.hasCategory(categoryId),
                 ReportSpecifications.postedWithin(postedWithin),
                 ReportSpecifications.textContains(search),
+                ReportSpecifications.inZone(zoneId),
                 ReportSpecifications.withLocationZone()
         );
 

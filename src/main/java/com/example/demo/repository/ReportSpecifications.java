@@ -4,7 +4,9 @@ import com.example.demo.model.Report;
 import com.example.demo.model.ReportStatus;
 import com.example.demo.model.ReportType;
 import com.example.demo.model.TimeWindow;
+import com.example.demo.model.Zone;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Path;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDateTime;
@@ -86,6 +88,32 @@ public final class ReportSpecifications {
         }
         return (root, query, builder) -> builder.equal(
                 root.join("location").join("zone").get("cityId"), cityId);
+    }
+
+    /**
+     * Oglas lezi u datoj zoni ILI u nekoj njenoj podzoni.
+     *
+     * Grana po roditelju je nosivi deo, ne sitnica: oglas se razresava na NAJDUBLJU zonu koja ga
+     * pokriva, dakle po pravilu na mesnu zajednicu. Filter po opstini bi bez toga hvatao samo onu
+     * manjinu oglasa koja je pala na nivo 1 (tacke koje nijedna mesna zajednica ne pokriva), pa bi
+     * izgledao kao da opstina nema skoro nista.
+     *
+     * Isti izraz radi za oba nivoa, jer {@code parent_id} zone nivoa 2 nikad nije id druge zone
+     * nivoa 2 — izbor mesne zajednice zato pogadja tacno nju.
+     *
+     * Koristi {@code get("zone")} nad postojecim join-om lokacije umesto novog {@code join}: put
+     * report -> location vec spajaju {@code inCity} i {@code withLocationZone}.
+     */
+    public static Specification<Report> inZone(Long zoneId) {
+        if (zoneId == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, builder) -> {
+            Path<Zone> zone = root.join("location").get("zone");
+            return builder.or(
+                    builder.equal(zone.get("id"), zoneId),
+                    builder.equal(zone.get("parentId"), zoneId));
+        };
     }
 
     /**
