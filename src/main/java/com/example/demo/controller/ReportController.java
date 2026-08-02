@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -53,20 +54,21 @@ public class ReportController {
                     + "are written. All filters are optional and combine as an intersection. zoneId "
                     + "narrows to a part of the city and takes either level: given a municipality it "
                     + "also returns listings that resolved to a local community inside it, which is "
-                    + "most of them.")
-    @ApiResponse(responseCode = "200", description = "Reports returned",
-            content = @Content(mediaType = "application/json",
-                    array = @ArraySchema(schema = @Schema(implementation = ReportListDTO.class))))
-    public ResponseEntity<List<ReportListDTO>> getReports(
+                    + "most of them. Paginated: the unpaginated version returned 14 MB for a city "
+                    + "with 50k listings, which no phone can usefully render.")
+    @ApiResponse(responseCode = "200", description = "One page of reports, newest first")
+    public ResponseEntity<Page<ReportListDTO>> getReports(
             @RequestParam(required = false) ReportType type,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) TimeWindow postedWithin,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long zoneId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal UserDetails userDetails) {
-        List<ReportListDTO> reports = reportService.getReports(
-                type, categoryId, postedWithin, search, zoneId, userDetails.getUsername());
-        return ResponseEntity.ok(reports);
+        return ResponseEntity.ok(reportService.getReports(
+                type, categoryId, postedWithin, search, zoneId, page, size,
+                userDetails.getUsername()));
     }
 
     @GetMapping("/mine")

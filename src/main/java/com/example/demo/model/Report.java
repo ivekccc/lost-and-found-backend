@@ -3,6 +3,7 @@ package com.example.demo.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -68,8 +69,10 @@ public class Report {
     @Column(name = "hidden_by_user_block", nullable = false)
     private boolean hiddenByUserBlock;
 
+   
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL, mappedBy = "report", orphanRemoval = true)
     @OrderBy("displayOrder ASC")
+    @BatchSize(size = 50)
     private List<ReportImage> images = new ArrayList<>();
 
     @PrePersist
