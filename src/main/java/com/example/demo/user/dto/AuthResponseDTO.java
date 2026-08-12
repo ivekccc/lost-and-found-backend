@@ -1,0 +1,22 @@
+package com.example.demo.user.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class AuthResponseDTO {
+
+    @NotBlank
+    private String token;
+
+    @NotBlank
+    private String refreshToken;
+
+    private String message;
+
+    @NotBlank
+    private String role;
+}

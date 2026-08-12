@@ -1,0 +1,64 @@
+package com.example.demo.report.controller;
+
+import com.example.demo.report.dto.ReportCategoryDto;
+import com.example.demo.report.service.ReportCategoryService;
+import com.example.demo.verification.VerificationFacade;
+import com.example.demo.verification.dto.QuestionTemplateDto;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/report-categories")
+@RequiredArgsConstructor
+@Tag(name = "Report Categories", description = "Report categories endpoints")
+public class ReportCategoryController {
+
+    private final ReportCategoryService reportCategoryService;
+    private final VerificationFacade verificationFacade;
+
+    @GetMapping
+    @Operation(summary = "Get all categories", description = "Returns a list of all active report categories")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved categories",
+                    content = @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = ReportCategoryDto.class))
+                    )
+            )
+    })
+    public ResponseEntity<List<ReportCategoryDto>> getAllCategories() {
+        return ResponseEntity.ok(reportCategoryService.getAllActiveCategories());
+    }
+
+    @GetMapping("/{id}/question-templates")
+    @Operation(summary = "Get question templates", description = "Returns active verification question templates for a category, offered when composing a challenge")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Successfully retrieved question templates",
+                    content = @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = QuestionTemplateDto.class))
+                    )
+            ),
+            @ApiResponse(responseCode = "404", description = "Category not found")
+    })
+    public ResponseEntity<List<QuestionTemplateDto>> getQuestionTemplates(@PathVariable Long id) {
+        return ResponseEntity.ok(verificationFacade.findActiveTemplatesForCategory(id));
+    }
+}

@@ -14,6 +14,10 @@ Spring Boot 4.0.1 REST API za Lost and Found platformu. Java 21, PostgreSQL, Fly
 - Swagger UI: http://localhost:8082/swagger-ui.html
 - OpenAPI spec: http://localhost:8082/v3/api-docs (iz njega se generiše @lost-and-found/api paket)
 
+## Struktura
+
+Organizacija je **po domenima** (`user/ report/ verification/ location/ matching/ notification/ shared/`), sa slojevima unutar svakog modula. Servis jednog modula NE SME da koristi repozitorijum drugog — komunikacija ide kroz `*Facade` u korenu modula ili kroz Spring događaje. Detalji u `HANDOFF.md` §3.
+
 ## Invarijante
 
 - Šemom upravlja ISKLJUČIVO Flyway (`ddl-auto=none`): šema u `db/migration/V{n}__*.sql`, seed u `db/seed/R__*.sql` (DELETE + INSERT). Jedna tabela = jedna migracija.

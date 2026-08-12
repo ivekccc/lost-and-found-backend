@@ -1,0 +1,29 @@
+package com.example.demo.report.model;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+@Entity
+@Table(name = "report_categories")
+@Getter
+@Setter
+public class ReportCategory {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false, length = 100)
+    private String name;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
+    @Column(name = "min_questions", nullable = false)
+    private Integer minQuestions = 2;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(name = "image_public_id", length = 255)
+    private String imagePublicId;
+}
