@@ -46,6 +46,28 @@ public class ReportMatch {
     @Column(name = "text_score", nullable = false)
     private Integer textScore;
 
+    /**
+     * Scoring parameters as they were at computation time, not as they are now. A match read back
+     * later must explain its own score even after the configuration has been retuned.
+     */
+    @Column(name = "applied_max_distance_km", nullable = false, precision = 6, scale = 2)
+    private BigDecimal appliedMaxDistanceKm;
+
+    @Column(name = "applied_weight_distance", nullable = false)
+    private Integer appliedWeightDistance;
+
+    @Column(name = "applied_weight_text", nullable = false)
+    private Integer appliedWeightText;
+
+    @Column(name = "applied_weight_time", nullable = false)
+    private Integer appliedWeightTime;
+
+    @Column(name = "applied_time_decay_days", nullable = false)
+    private Integer appliedTimeDecayDays;
+
+    @Column(name = "applied_score_threshold", nullable = false)
+    private Integer appliedScoreThreshold;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private ReportMatchStatus status = ReportMatchStatus.SUGGESTED;

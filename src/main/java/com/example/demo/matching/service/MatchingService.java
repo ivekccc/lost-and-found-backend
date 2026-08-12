@@ -121,6 +121,16 @@ public class MatchingService {
         match.setTextSimilarity(BigDecimal.valueOf(similarity).setScale(3, RoundingMode.HALF_UP));
         match.setTextScore(textScore);
 
+        // Outside the isNew branch on purpose: a recomputed match must carry the parameters that
+        // produced its current scores, or the stored row explains itself with the wrong numbers.
+        match.setAppliedMaxDistanceKm(BigDecimal.valueOf(matchingProperties.getMaxDistanceKm())
+                .setScale(2, RoundingMode.HALF_UP));
+        match.setAppliedWeightDistance(matchingProperties.getWeightDistance());
+        match.setAppliedWeightText(matchingProperties.getWeightText());
+        match.setAppliedWeightTime(matchingProperties.getWeightTime());
+        match.setAppliedTimeDecayDays(matchingProperties.getTimeDecayDays());
+        match.setAppliedScoreThreshold(matchingProperties.getScoreThreshold());
+
         if (isNew) {
             match.setNotifiedAt(LocalDateTime.now());
         }

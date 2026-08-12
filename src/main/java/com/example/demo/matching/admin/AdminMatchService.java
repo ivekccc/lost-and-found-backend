@@ -4,6 +4,7 @@ import com.example.demo.matching.model.ReportMatch;
 import com.example.demo.matching.model.ReportMatchStatus;
 import com.example.demo.matching.repository.ReportMatchRepository;
 import com.example.demo.matching.repository.ReportMatchSpecifications;
+import com.example.demo.shared.exception.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,50 @@ public class AdminMatchService {
                 Sort.by(Sort.Direction.DESC, "score").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
         return reportMatchRepository.findAll(spec, pageable).map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminMatchDetailsDto getMatch(Long id) {
+        ReportMatch match = reportMatchRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Match not found"));
+
+        return toDetailsDto(match);
+    }
+
+    private AdminMatchDetailsDto toDetailsDto(ReportMatch match) {
+        MatchingConfigDto config = new MatchingConfigDto(
+                match.getAppliedMaxDistanceKm().doubleValue(),
+                match.getAppliedWeightDistance(),
+                match.getAppliedWeightText(),
+                match.getAppliedWeightTime(),
+                match.getAppliedTimeDecayDays(),
+                match.getAppliedScoreThreshold()
+        );
+
+        return new AdminMatchDetailsDto(
+                match.getId(),
+                match.getScore(),
+                match.getDistanceKm().doubleValue(),
+                match.getDistanceScore(),
+                match.getTimeGapDays(),
+                match.getTimeScore(),
+                match.getTextSimilarity().doubleValue(),
+                match.getTextScore(),
+                config,
+                match.getStatus(),
+                match.getLostReport().getCategory().getName(),
+                match.getLostReport().getId(),
+                match.getLostReport().getTitle(),
+                match.getLostReport().getStatus(),
+                match.getFoundReport().getId(),
+                match.getFoundReport().getTitle(),
+                match.getFoundReport().getStatus(),
+                match.getLostDismissedAt(),
+                match.getFoundDismissedAt(),
+                match.getNotifiedAt(),
+                match.getCreatedAt(),
+                match.getUpdatedAt()
+        );
     }
 
     private AdminMatchListDto toDto(ReportMatch match) {
