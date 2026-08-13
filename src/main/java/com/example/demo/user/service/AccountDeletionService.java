@@ -29,6 +29,7 @@ public class AccountDeletionService {
     
     private final NotificationFacade notificationFacade;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -95,6 +96,7 @@ public class AccountDeletionService {
 
     private void anonymize(User user) {
         Long userId = user.getId();
+        refreshTokenService.revokeAllForUser(userId);
         user.setEmail("deleted-" + userId + "@deleted.local");
         user.setUsername("deleted-" + userId);
         user.setFirstName(null);

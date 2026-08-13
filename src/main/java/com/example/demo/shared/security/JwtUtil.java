@@ -9,7 +9,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
+import java.util.UUID;
 /**
  * Issues and validates JWTs. Both token kinds carry a typ claim and every check requires it —
  * without it the two differed only by a role claim, so a refresh token worked as an Authorization
@@ -64,6 +67,7 @@ public class JwtUtil {
 
     public String generateRefreshToken(String email) {
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(email)
                 .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
                 .issuedAt(new Date())
@@ -79,6 +83,11 @@ public class JwtUtil {
 
     public String extractUsername(String token) {
         return parseClaims(token).getSubject();
+    }
+
+    public LocalDateTime extractExpiration(String token) {
+        return LocalDateTime.ofInstant(parseClaims(token).getExpiration().toInstant(),
+                ZoneId.systemDefault());
     }
 
     public boolean validateToken(String token, UserDetails userDetails) {

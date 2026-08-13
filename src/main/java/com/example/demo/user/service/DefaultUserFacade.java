@@ -32,6 +32,7 @@ public class DefaultUserFacade implements UserFacade {
     @Transactional
     public void savePushToken(String email, String fcmToken) {
         User user = requireByEmail(email);
+        userRepository.detachPushTokenFromOtherUsers(fcmToken, user.getId());
         user.setFcmToken(fcmToken);
         userRepository.save(user);
     }

@@ -11,6 +11,7 @@ import com.example.demo.user.model.User;
 import com.example.demo.user.model.UserRole;
 import com.example.demo.user.model.UserStatus;
 import com.example.demo.user.repository.UserRepository;
+import com.example.demo.user.service.RefreshTokenService;
 import com.example.demo.user.service.AccountDeletionService;
 import com.example.demo.verification.VerificationFacade;
 
@@ -28,6 +29,7 @@ public class AdminUserService {
     private final VerificationFacade verificationFacade;
     private final AccountDeletionService accountDeletionService;
     private final NotificationFacade notificationFacade;
+    private final RefreshTokenService refreshTokenService;
 
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
@@ -47,6 +49,7 @@ public class AdminUserService {
                 reportFacade.hideListingsOfBlockedUser(user.getId()));
         verificationFacade.declinePendingClaimsOfUser(user.getId());
         reportFacade.resolveAbuseReportsForUser(user.getId(), adminEmail);
+        refreshTokenService.revokeAllForUser(user.getId());
 
         notificationFacade.notify(user.getId(), NotificationType.ACCOUNT_BLOCKED,
                 "Account blocked",
@@ -94,7 +97,6 @@ public class AdminUserService {
         }
         return user;
     }
-
 
     public List<UserListDTO> getAllUsers(UserRole role) {
         List<User> users;

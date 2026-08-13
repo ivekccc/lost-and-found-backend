@@ -4,6 +4,7 @@ import com.example.demo.user.dto.AuthRequestDTO;
 import com.example.demo.user.dto.AuthResponseDTO;
 import com.example.demo.user.dto.ForgotPasswordRequestDto;
 import com.example.demo.user.dto.GoogleAuthRequestDto;
+import com.example.demo.user.dto.LogoutRequestDto;
 import com.example.demo.user.dto.RefreshTokenRequestDTO;
 import com.example.demo.user.dto.RefreshTokenResponseDTO;
 import com.example.demo.user.dto.RegisterRequestDTO;
@@ -79,6 +80,17 @@ public class AuthController {
     @Operation(summary = "Refresh token", description = "Returns new access and refresh tokens")
     public ResponseEntity<RefreshTokenResponseDTO> refresh(@Valid @RequestBody RefreshTokenRequestDTO req) {
         return ResponseEntity.ok(authService.refreshToken(req));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Log out",
+            description = "Ends the session the refresh token belongs to. Other sessions of the "
+                    + "same account stay signed in. Idempotent — an unknown or already-spent token "
+                    + "still returns 204.")
+    @ApiResponse(responseCode = "204", description = "Session ended")
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequestDto req) {
+        authService.logout(req);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/login")

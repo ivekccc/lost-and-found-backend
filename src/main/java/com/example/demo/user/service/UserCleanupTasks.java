@@ -1,6 +1,7 @@
 package com.example.demo.user.service;
 
 import com.example.demo.user.repository.PasswordResetRepository;
+import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.PreRegistrationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ public class UserCleanupTasks {
 
     private final PreRegistrationRepository preRegistrationRepository;
     private final PasswordResetRepository passwordResetRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Scheduled(fixedRateString = "${app.cleanup.interval-ms:3600000}")
     @Transactional
@@ -24,12 +26,16 @@ public class UserCleanupTasks {
         LocalDateTime now = LocalDateTime.now();
         int deletedPreRegistrations = preRegistrationRepository.deleteByExpiresAtBefore(now);
         int deletedPasswordResets = passwordResetRepository.deleteByExpiresAtBefore(now);
+        int deletedSessions = refreshTokenRepository.deleteByExpiresAtBefore(now);
 
         if (deletedPreRegistrations > 0) {
             log.info("Cleaned up {} expired pre-registrations", deletedPreRegistrations);
         }
         if (deletedPasswordResets > 0) {
             log.info("Cleaned up {} expired password resets", deletedPasswordResets);
+        }
+        if (deletedSessions > 0) {
+            log.info("Cleaned up {} expired sessions", deletedSessions);
         }
     }
 }

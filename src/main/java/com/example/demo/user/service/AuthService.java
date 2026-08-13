@@ -13,6 +13,7 @@ import com.example.demo.user.dto.AuthRequestDTO;
 import com.example.demo.user.dto.AuthResponseDTO;
 import com.example.demo.user.dto.ForgotPasswordRequestDto;
 import com.example.demo.user.dto.GoogleAuthRequestDto;
+import com.example.demo.user.dto.LogoutRequestDto;
 import com.example.demo.user.dto.RefreshTokenRequestDTO;
 import com.example.demo.user.dto.RefreshTokenResponseDTO;
 import com.example.demo.user.dto.RegisterRequestDTO;
@@ -29,6 +30,7 @@ import com.example.demo.user.repository.PasswordResetRepository;
 import com.example.demo.user.repository.PreRegistrationRepository;
 import com.example.demo.user.repository.UserRepository;
 
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -57,6 +59,7 @@ public class AuthService {
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ApplicationEventPublisher eventPublisher;
     private final LocationFacade locationFacade;
+    private final RefreshTokenService refreshTokenService;
 
     private static final int RESEND_COOLDOWN_SECONDS = 60;
 
@@ -153,21 +156,17 @@ public class AuthService {
 
         preRegistrationRepository.delete(preReg);
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        return new AuthResponseDTO(token, refreshToken, "Email verified successfully", user.getRole().name());
-
+        return issueSession(user);
     }
 
+    @Transactional
     public AuthResponseDTO login(AuthRequestDTO req) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
         );
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        String token = jwtUtil.generateToken(req.getEmail(), user.getRole().name());
-        String refreshToken = jwtUtil.generateRefreshToken(req.getEmail());
-        return new AuthResponseDTO(token, refreshToken, "Login successful", user.getRole().name());
+        return issueSession(user);
     }
 
     @Transactional
@@ -195,9 +194,14 @@ public class AuthService {
                     new GoogleAvatarRequestedEvent(this, user.getId(), identity.pictureUrl()));
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        return issueSession(user);
+    }
+
+    private AuthResponseDTO issueSession(User user) {
+        String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        return new AuthResponseDTO(token, refreshToken, "Login successful", user.getRole().name());
+        refreshTokenService.register(user, refreshToken, jwtUtil.extractExpiration(refreshToken));
+        return new AuthResponseDTO(accessToken, refreshToken, user.getRole());
     }
 
     private User createGoogleUser(GoogleTokenVerifierService.GoogleIdentity identity) {
@@ -292,21 +296,53 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
         passwordResetRepository.delete(reset);
+        refreshTokenService.revokeAllForUser(user.getId());
     }
 
+    @Transactional
     public RefreshTokenResponseDTO refreshToken(RefreshTokenRequestDTO req) {
         String refreshToken = req.getRefreshToken();
-        String username = jwtUtil.extractUsername(refreshToken);
+        String username = usernameFromRefreshToken(refreshToken);
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         if (!userDetails.isEnabled() || !jwtUtil.validateRefreshToken(refreshToken, userDetails)) {
             throw new InvalidTokenException("Invalid refresh token");
         }
 
+        if (!refreshTokenService.consume(refreshToken)) {
+            throw new InvalidTokenException("Refresh token is no longer valid");
+        }
+
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         String newAccessToken = jwtUtil.generateToken(username, user.getRole().name());
         String newRefreshToken = jwtUtil.generateRefreshToken(username);
-        return new RefreshTokenResponseDTO(newAccessToken, newRefreshToken, "Token refreshed");
+        refreshTokenService.register(user, newRefreshToken, jwtUtil.extractExpiration(newRefreshToken));
+        return new RefreshTokenResponseDTO(newAccessToken, newRefreshToken);
+    }
+
+    @Transactional
+    public void logout(LogoutRequestDto req) {
+        boolean wasLive = refreshTokenService.consume(req.getRefreshToken());
+
+        String fcmToken = req.getFcmToken();
+        if (!wasLive || fcmToken == null || fcmToken.isBlank()) {
+            return;
+        }
+
+        userRepository.findByEmail(usernameFromRefreshToken(req.getRefreshToken()))
+                .filter(user -> fcmToken.equals(user.getFcmToken()))
+                .ifPresent(user -> {
+                    user.setFcmToken(null);
+                    userRepository.save(user);
+                });
+    }
+
+    private String usernameFromRefreshToken(String refreshToken) {
+        try {
+            return jwtUtil.extractUsername(refreshToken);
+        } catch (JwtException e) {
+            throw new InvalidTokenException("Invalid refresh token");
+        }
     }
 }
