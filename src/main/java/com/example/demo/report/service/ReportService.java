@@ -181,8 +181,10 @@ public class ReportService {
         Report report = ownedReport(id, user);
 
         if (report.getStatus() != ReportStatus.MATCHED
-                && report.getStatus() != ReportStatus.RESOLVED) {
-            throw new IllegalArgumentException("Only a closed or reunited report can be reopened");
+                && report.getStatus() != ReportStatus.RESOLVED
+                && report.getStatus() != ReportStatus.EXPIRED) {
+            throw new IllegalArgumentException(
+                    "Only a closed, reunited or expired report can be reopened");
         }
 
         report.setStatus(ReportStatus.ACTIVE);
@@ -209,8 +211,10 @@ public class ReportService {
         Report report = ownedReport(id, user);
 
         if (report.getStatus() != ReportStatus.ACTIVE
-                && report.getStatus() != ReportStatus.MATCHED) {
-            throw new IllegalArgumentException("Only an active or closed report can be marked reunited");
+                && report.getStatus() != ReportStatus.MATCHED
+                && report.getStatus() != ReportStatus.EXPIRED) {
+            throw new IllegalArgumentException(
+                    "Only an active, closed or expired report can be marked reunited");
         }
 
         report.setStatus(ReportStatus.RESOLVED);
