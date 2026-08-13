@@ -85,6 +85,7 @@ public class AccountDeletionService {
         // Verification data first: claims reference challenges and challenges reference listings,
         // and none of those foreign keys cascade.
         imagesToRemove.addAll(verificationFacade.deleteVerificationDataForListingsOf(userId));
+        reportFacade.deleteSavedListingsOfUser(userId);
         imagesToRemove.addAll(reportFacade.deleteListingsOfUser(userId));
         anonymize(user);
 

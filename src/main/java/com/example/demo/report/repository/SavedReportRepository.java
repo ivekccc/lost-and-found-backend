@@ -23,6 +23,10 @@ public interface SavedReportRepository extends JpaRepository<SavedReport, Long> 
      * A user's saved listings, newest first. JOIN FETCH of location and zone because the location
      * label is built for every row, and deleted or moderated listings drop out — opening one 404s.
      */
+    @Modifying
+    @Query("DELETE FROM SavedReport s WHERE s.user.id = :userId")
+    int deleteByUserId(@Param("userId") Long userId);
+
     @Query("SELECT s.report FROM SavedReport s "
             + "LEFT JOIN FETCH s.report.location l "
             + "LEFT JOIN FETCH l.zone "

@@ -8,6 +8,7 @@ import com.example.demo.report.model.ReportType;
 import com.example.demo.report.dto.MatchCandidateView;
 import com.example.demo.report.repository.ReportCategoryRepository;
 import com.example.demo.report.repository.ReportRepository;
+import com.example.demo.report.repository.SavedReportRepository;
 import com.example.demo.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class DefaultReportFacade implements ReportFacade {
     private final ReportRepository reportRepository;
     private final ReportCategoryRepository reportCategoryRepository;
     private final AbuseReportService abuseReportService;
+    private final SavedReportRepository savedReportRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -134,6 +136,12 @@ public class DefaultReportFacade implements ReportFacade {
             reportRepository.delete(report);
         }
         return imagesToRemove;
+    }
+
+    @Override
+    @Transactional
+    public void deleteSavedListingsOfUser(Long userId) {
+        savedReportRepository.deleteByUserId(userId);
     }
 
     @Override

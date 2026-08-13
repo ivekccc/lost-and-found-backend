@@ -50,6 +50,9 @@ public interface ReportFacade {
     /** Deletes a user's listings and returns the Cloudinary ids that must be cleaned up. */
     List<String> deleteListingsOfUser(Long userId);
 
+    /** Drops what a user had bookmarked; it survives no purpose once the account is erased. */
+    void deleteSavedListingsOfUser(Long userId);
+
     void resolveAbuseReportsForUser(Long userId, String adminEmail);
 
     void dismissAbuseReportsForUser(Long userId, String adminEmail);
