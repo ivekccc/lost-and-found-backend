@@ -1,7 +1,9 @@
 package com.example.demo.matching.service;
 
 import com.example.demo.location.model.Zone;
+import com.example.demo.matching.model.MatchingConfig;
 import com.example.demo.matching.model.ReportMatch;
+import com.example.demo.matching.repository.MatchingConfigRepository;
 import com.example.demo.report.dto.MatchCandidateView;
 import com.example.demo.matching.repository.ReportMatchRepository;
 import com.example.demo.notification.model.NotificationType;
@@ -29,7 +31,7 @@ public class MatchingService {
     private final ReportFacade reportFacade;
     private final ReportMatchRepository reportMatchRepository;
     private final NotificationFacade notificationFacade;
-    private final MatchingProperties matchingProperties;
+    private final MatchingConfigRepository matchingConfigRepository;
 
     @Transactional
     public void computeMatchesForReport(Long reportId) {
@@ -59,33 +61,39 @@ public class MatchingService {
                 probeText,
                 zone.getCityId());
 
+        // Read once per run rather than per candidate, and deliberately without a cache: an admin
+        // edit must take effect on the next report, and one extra query per creation is nothing.
+        MatchingConfig config = matchingConfigRepository.require();
+
         for (MatchCandidateView candidate : candidates) {
-            evaluateCandidate(report, candidate);
+            evaluateCandidate(report, candidate, config);
         }
     }
 
-    private void evaluateCandidate(Report report, MatchCandidateView candidate) {
+    private void evaluateCandidate(Report report, MatchCandidateView candidate, MatchingConfig config) {
         double distanceKm = GeoUtils.haversineKm(
                 report.getLocation().getLatitude().doubleValue(),
                 report.getLocation().getLongitude().doubleValue(),
                 candidate.getLatitude().doubleValue(),
                 candidate.getLongitude().doubleValue());
 
-        if (distanceKm > matchingProperties.getMaxDistanceKm()) {
+        if (distanceKm > config.getMaxDistanceKm().doubleValue()) {
             return;
         }
 
         int timeGapDays = (int) Math.abs(Duration.between(report.getCreatedAt(), candidate.getCreatedAt()).toDays());
         double similarity = candidate.getSimilarity() == null ? 0 : candidate.getSimilarity();
 
-        int distanceScore = (int) Math.round(matchingProperties.getWeightDistance()
-                * (1 - Math.min(distanceKm, matchingProperties.getMaxDistanceKm()) / matchingProperties.getMaxDistanceKm()));
-        int textScore = (int) Math.round(matchingProperties.getWeightText() * similarity);
-        int timeScore = (int) Math.round(matchingProperties.getWeightTime()
-                * Math.max(0, 1 - (double) timeGapDays / matchingProperties.getTimeDecayDays()));
+        double maxDistanceKm = config.getMaxDistanceKm().doubleValue();
+
+        int distanceScore = (int) Math.round(config.getWeightDistance()
+                * (1 - Math.min(distanceKm, maxDistanceKm) / maxDistanceKm));
+        int textScore = (int) Math.round(config.getWeightText() * similarity);
+        int timeScore = (int) Math.round(config.getWeightTime()
+                * Math.max(0, 1 - (double) timeGapDays / config.getTimeDecayDays()));
         int score = distanceScore + textScore + timeScore;
 
-        if (score < matchingProperties.getScoreThreshold()) {
+        if (score < config.getScoreThreshold()) {
             return;
         }
 
@@ -95,12 +103,12 @@ public class MatchingService {
         // A concurrent insert of the same pair aborts this transaction (unique constraint); the
         // periodic rescan reconciles anything lost to such a race, so no in-transaction retry.
         upsertMatch(lostReportId, foundReportId, score, distanceKm, distanceScore,
-                timeGapDays, timeScore, similarity, textScore);
+                timeGapDays, timeScore, similarity, textScore, config);
     }
 
     private void upsertMatch(Long lostReportId, Long foundReportId, int score, double distanceKm,
                              int distanceScore, int timeGapDays, int timeScore,
-                             double similarity, int textScore) {
+                             double similarity, int textScore, MatchingConfig config) {
         ReportMatch match = reportMatchRepository
                 .findByLostReportIdAndFoundReportId(lostReportId, foundReportId)
                 .orElse(null);
@@ -123,13 +131,12 @@ public class MatchingService {
 
         // Outside the isNew branch on purpose: a recomputed match must carry the parameters that
         // produced its current scores, or the stored row explains itself with the wrong numbers.
-        match.setAppliedMaxDistanceKm(BigDecimal.valueOf(matchingProperties.getMaxDistanceKm())
-                .setScale(2, RoundingMode.HALF_UP));
-        match.setAppliedWeightDistance(matchingProperties.getWeightDistance());
-        match.setAppliedWeightText(matchingProperties.getWeightText());
-        match.setAppliedWeightTime(matchingProperties.getWeightTime());
-        match.setAppliedTimeDecayDays(matchingProperties.getTimeDecayDays());
-        match.setAppliedScoreThreshold(matchingProperties.getScoreThreshold());
+        match.setAppliedMaxDistanceKm(config.getMaxDistanceKm().setScale(2, RoundingMode.HALF_UP));
+        match.setAppliedWeightDistance(config.getWeightDistance());
+        match.setAppliedWeightText(config.getWeightText());
+        match.setAppliedWeightTime(config.getWeightTime());
+        match.setAppliedTimeDecayDays(config.getTimeDecayDays());
+        match.setAppliedScoreThreshold(config.getScoreThreshold());
 
         if (isNew) {
             match.setNotifiedAt(LocalDateTime.now());

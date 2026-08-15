@@ -48,7 +48,7 @@ public class AdminMatchDetailsDto {
     private Integer textScore;
 
     @NotNull
-    private MatchingConfigDto config;
+    private AppliedMatchingConfigDto config;
 
     @NotNull
     private ReportMatchStatus status;

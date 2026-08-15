@@ -47,8 +47,8 @@ public class AdminMatchService {
     }
 
     private AdminMatchDetailsDto toDetailsDto(ReportMatch match) {
-        MatchingConfigDto config = new MatchingConfigDto(
-                match.getAppliedMaxDistanceKm().doubleValue(),
+        AppliedMatchingConfigDto config = new AppliedMatchingConfigDto(
+                match.getAppliedMaxDistanceKm(),
                 match.getAppliedWeightDistance(),
                 match.getAppliedWeightText(),
                 match.getAppliedWeightTime(),

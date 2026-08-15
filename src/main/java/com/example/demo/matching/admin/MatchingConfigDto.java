@@ -6,19 +6,22 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 /**
- * The scoring parameters a match was computed with, read from the match row rather than from the
- * live configuration — so the breakdown stays reproducible after the engine is retuned.
+ * The parameters the engine is running on right now. Distinct from
+ * {@link AppliedMatchingConfigDto}, which is the snapshot a single match was scored with.
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "Matching parameters as applied when this match was computed")
+@Schema(name = "MatchingConfigDto", description = "Live scoring parameters of the matching engine")
 public class MatchingConfigDto {
 
     @NotNull
     @Schema(description = "Hard cut-off; candidates further apart are dropped before scoring")
-    private Double maxDistanceKm;
+    private BigDecimal maxDistanceKm;
 
     @NotNull
     private Integer weightDistance;
@@ -36,4 +39,8 @@ public class MatchingConfigDto {
     @NotNull
     @Schema(description = "Minimum total score for a pair to be suggested")
     private Integer scoreThreshold;
+
+    @NotNull
+    @Schema(description = "When these values were last changed")
+    private LocalDateTime updatedAt;
 }
