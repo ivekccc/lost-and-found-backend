@@ -1,10 +1,15 @@
 package com.example.demo.location.service;
 
 import com.example.demo.location.dto.AutoCompleteSuggestionDTO;
+import com.example.demo.location.dto.CityDto;
+import com.example.demo.location.dto.ReverseGeocodeDto;
 import com.example.demo.location.dto.locationiq.LocationIqAddress;
 import com.example.demo.location.dto.locationiq.LocationIqResult;
 import com.example.demo.location.model.City;
 import com.example.demo.location.model.Location;
+import com.example.demo.shared.exception.LocationOutsideSupportedCitiesException;
+import com.example.demo.shared.exception.RateLimitExceededException;
+import com.example.demo.shared.exception.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +29,9 @@ public class LocationService {
     // More candidates are fetched than shown, because the zone filter discards some of them.
     private static final int CANDIDATE_LIMIT = 15;
     private static final int SUGGESTION_LIMIT = 5;
+
+    // LocationIQ throttles at a couple of requests a second; a short wait is genuinely enough.
+    private static final int LOCATIONIQ_RETRY_AFTER_SECONDS = 2;
 
     @Value("${locationiq.api-key}")
     private String apiKey;
@@ -72,6 +80,73 @@ public class LocationService {
         } catch (Exception e) {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * The address under a pair of device coordinates.
+     *
+     * The city is decided from the coordinates of the MATCHED ADDRESS, not from the device's own
+     * position: the listing later resolves its zone through {@link #lookupLocation}, which reads
+     * the address, so judging the device point could accept a fix near a city border whose nearest
+     * address lies outside it — and the listing would then land in the wrong city or none at all.
+     */
+    public ReverseGeocodeDto reverseGeocode(double latitude, double longitude, String userEmail) {
+        if (!isValidCoordinate(latitude, 90) || !isValidCoordinate(longitude, 180)) {
+            throw new IllegalArgumentException(
+                    "Latitude must be between -90 and 90, longitude between -180 and 180");
+        }
+
+        City activeCity = cityService.getActiveCity(userEmail);
+        String url = baseUrl + "/reverse"
+                + "?key=" + apiKey
+                + "&lat=" + latitude
+                + "&lon=" + longitude
+                + "&format=json"
+                + "&addressdetails=1";
+
+        LocationIqResult result;
+        try {
+            // Unlike /autocomplete and /lookup, /reverse answers with a single object.
+            result = restTemplate.getForObject(url, LocationIqResult.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new ResourceNotFoundException("No address found at these coordinates");
+        } catch (HttpClientErrorException.TooManyRequests e) {
+            // Autocomplete degrades to an empty list here, but an empty answer means nothing to a
+            // button the user just pressed: without this the provider's throttling surfaced as a
+            // bare 500, and the fix is simply to wait a moment.
+            throw new RateLimitExceededException(
+                    "Location service is busy right now — try again in a moment",
+                    LOCATIONIQ_RETRY_AFTER_SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
+        }
+
+        if (result == null || result.getLat() == null || result.getLon() == null) {
+            throw new ResourceNotFoundException("No address found at these coordinates");
+        }
+
+        double resultLatitude;
+        double resultLongitude;
+        try {
+            resultLatitude = Double.parseDouble(result.getLat());
+            resultLongitude = Double.parseDouble(result.getLon());
+        } catch (NumberFormatException e) {
+            throw new ResourceNotFoundException("No usable address found at these coordinates");
+        }
+
+        CityDto city = cityService
+                .detectCity(resultLatitude, resultLongitude)
+                .orElseThrow(() -> new LocationOutsideSupportedCitiesException(
+                        "This place is outside the cities the app covers — Beograd, Novi Sad and Bajina Bašta"));
+
+        return new ReverseGeocodeDto(
+                toAutoCompleteDTO(result),
+                city,
+                city.getId().equals(activeCity.getId()));
+    }
+
+    private boolean isValidCoordinate(double value, double bound) {
+        return !Double.isNaN(value) && Math.abs(value) <= bound;
     }
 
     private boolean liesInCity(LocationIqResult result, City city) {

@@ -82,6 +82,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.NOT_FOUND.value()));
     }
 
+    @ExceptionHandler(LocationOutsideSupportedCitiesException.class)
+    public ResponseEntity<ErrorResponseDTO> handleLocationOutsideSupportedCities(
+            LocationOutsideSupportedCitiesException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.CONFLICT.value()));
+    }
+
     @ExceptionHandler(InvalidClaimException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidClaim(InvalidClaimException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
