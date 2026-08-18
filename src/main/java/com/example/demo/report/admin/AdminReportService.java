@@ -107,6 +107,10 @@ public class AdminReportService {
         if (report.getResolvedAt() != null) {
             return ReportStatus.RESOLVED;
         }
+        
+        if (report.getClosedAt() != null) {
+            return ReportStatus.CLOSED;
+        }
         // The type condition mirrors ClaimService.approveClaim: an approved claim closes only a
         // FOUND listing.
         if (report.getType() == ReportType.FOUND

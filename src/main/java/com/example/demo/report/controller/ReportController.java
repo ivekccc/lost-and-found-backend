@@ -186,7 +186,7 @@ public class ReportController {
 
     @PostMapping("/{id}/close")
     @Operation(summary = "Close my report",
-            description = "Marks the caller's own active report as matched: it stops appearing in search, "
+            description = "Withdraws the caller's own active report: it moves to CLOSED, stops appearing in search, "
                     + "in nearby results and in the matching engine, and its existing matches become hidden "
                     + "to both sides. Nothing is deleted — the owner can reopen it later. Only the report "
                     + "owner may call this; another user's report is reported as not found.")
@@ -207,7 +207,7 @@ public class ReportController {
     @Operation(summary = "Mark a report as reunited",
             description = "The owner confirms the item is back with its owner. This is the only "
                     + "path to RESOLVED, and the only outcome counted as a successful reunion — "
-                    + "closing a listing without getting the item back stays MATCHED so the number "
+                    + "closing a listing without getting the item back stays CLOSED so the number "
                     + "is not inflated. Allowed from active and closed listings, since approving a "
                     + "claim often closes a found listing before the handover happens. Any claims "
                     + "still awaiting a decision are declined, and whoever had an approved claim is "

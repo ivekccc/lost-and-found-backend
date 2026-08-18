@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public enum ReportStatus {
     ACTIVE,
     MATCHED,
+    CLOSED,
     RESOLVED,
     EXPIRED,
     FLAGGED,

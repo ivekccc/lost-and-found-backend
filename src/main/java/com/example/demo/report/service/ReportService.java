@@ -171,8 +171,9 @@ public class ReportService {
     /**
      * Brings a closed listing back among the active ones.
      *
-     * MATCHED used to be a dead end — out of search, out of matching, never expiring, with no way
-     * back. The expiry date is pushed out too, or the sweep would kill the listing within the hour.
+     * A withdrawn listing used to be a dead end — out of search, out of matching, never expiring,
+     * with no way back. The expiry date is pushed out too, or the sweep would kill the listing
+     * within the hour.
      */
     @Transactional
     public ReportDetailsDTO reopenReport(Long id, String userEmail) {
@@ -180,7 +181,8 @@ public class ReportService {
 
         Report report = ownedReport(id, user);
 
-        if (report.getStatus() != ReportStatus.MATCHED
+        if (report.getStatus() != ReportStatus.CLOSED
+                && report.getStatus() != ReportStatus.MATCHED
                 && report.getStatus() != ReportStatus.RESOLVED
                 && report.getStatus() != ReportStatus.EXPIRED) {
             throw new IllegalArgumentException(
@@ -192,6 +194,9 @@ public class ReportService {
         // The reunion mark is cleared: a listing back in search plainly was not reunited, and a
         // stale resolvedAt would keep counting it as returned forever.
         report.setResolvedAt(null);
+        // Cleared for the same reason, and it is what AdminReportService.restoredStatusFor reads:
+        // a leftover closedAt would drag the listing back to CLOSED the first time it is moderated.
+        report.setClosedAt(null);
         reportRepository.save(report);
 
         return toDetailsDTO(report, user, false);
@@ -211,6 +216,7 @@ public class ReportService {
         Report report = ownedReport(id, user);
 
         if (report.getStatus() != ReportStatus.ACTIVE
+                && report.getStatus() != ReportStatus.CLOSED
                 && report.getStatus() != ReportStatus.MATCHED
                 && report.getStatus() != ReportStatus.EXPIRED) {
             throw new IllegalArgumentException(
@@ -257,7 +263,8 @@ public class ReportService {
             throw new IllegalArgumentException("Only an active report can be closed");
         }
 
-        report.setStatus(ReportStatus.MATCHED);
+        report.setStatus(ReportStatus.CLOSED);
+        report.setClosedAt(LocalDateTime.now());
         reportRepository.save(report);
 
         // A closed listing accepts no more claim decisions, so anything still pending would hang
