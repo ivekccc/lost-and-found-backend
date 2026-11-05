@@ -164,6 +164,30 @@ public class ReportController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Edit my report",
+            description = "Changes the title, description, location, contact details and photos of the "
+                    + "caller's own report while it is active, closed or expired. Type, category and "
+                    + "verification questions stay as published, because claims were answered against them. "
+                    + "Photos left out of keptImageIds are removed from storage once the edit is saved. "
+                    + "When the text or the location changes, matches are recomputed and pairs that no "
+                    + "longer qualify are dropped. Another user's report is reported as not found.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Report updated",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportDetailsDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid data, report not editable in its "
+                    + "status, too many photos, a photo that is not part of the report, or a location "
+                    + "outside the caller's city"),
+            @ApiResponse(responseCode = "404", description = "Report not found or not owned by the caller")
+    })
+    public ResponseEntity<ReportDetailsDTO> updateReport(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateReportRequestDto request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.updateReport(id, request, userDetails.getUsername()));
+    }
+
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete my report",
             description = "Removes the caller's own report from the platform. The row is kept so that "
@@ -228,8 +252,8 @@ public class ReportController {
     @PostMapping("/{id}/reopen")
     @Operation(summary = "Reopen my report",
             description = "Returns the caller's own closed report to active: it appears in search and nearby "
-                    + "again, re-enters the matching engine, and its previously hidden matches become visible "
-                    + "immediately. The expiry date is extended by a full term, so a report that sat closed "
+                    + "again and re-enters the matching engine: matches are recomputed, previously hidden ones that "
+                    + "still qualify become visible again and the rest are dropped. The expiry date is extended by a full term, so a report that sat closed "
                     + "past its original expiry is not swept away right after being reopened. Only the report "
                     + "owner may call this; another user's report is reported as not found.")
     @ApiResponses(value = {

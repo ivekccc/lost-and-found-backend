@@ -59,6 +59,12 @@ public class ReportDetailsDTO {
     @NotNull
     private Boolean hasContactPhone;
 
+    @Schema(description = "The contact email itself, only for the owner so the report can be edited; null for everyone else")
+    private String contactEmail;
+
+    @Schema(description = "The contact phone itself, only for the owner so the report can be edited; null for everyone else")
+    private String contactPhone;
+
     private List<ReportImageDTO> images;
 
     @Schema(description = "Id of the challenge the report OWNER created on their own found report. "

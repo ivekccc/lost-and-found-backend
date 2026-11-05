@@ -22,7 +22,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,21 +38,47 @@ public class MatchingService {
 
     @Transactional
     public void computeMatchesForReport(Long reportId) {
+        computeQualifyingCandidates(reportId);
+    }
+
+    @Transactional
+    public void recomputeMatchesForEditedReport(Long reportId) {
+        Optional<Set<Long>> qualifying = computeQualifyingCandidates(reportId);
+        if (qualifying.isEmpty()) {
+            return;
+        }
+        List<ReportMatch> stale = reportMatchRepository
+                .findByLostReportIdOrFoundReportId(reportId, reportId).stream()
+                .filter(match -> !qualifying.get().contains(counterpartId(match, reportId)))
+                .toList();
+        if (!stale.isEmpty()) {
+            log.info("Dropping {} matches of report {} that no longer qualify", stale.size(), reportId);
+            reportMatchRepository.deleteAll(stale);
+        }
+    }
+
+    private Long counterpartId(ReportMatch match, Long reportId) {
+        return match.getLostReport().getId().equals(reportId)
+                ? match.getFoundReport().getId()
+                : match.getLostReport().getId();
+    }
+
+    private Optional<Set<Long>> computeQualifyingCandidates(Long reportId) {
         Report report = reportFacade.findById(reportId).orElse(null);
 
         if (report == null || report.getStatus() != ReportStatus.ACTIVE || report.getLocation() == null) {
-            return;
+            return Optional.empty();
         }
 
         // A listing without a resolved zone has no city, so it cannot be compared to any candidate.
         Zone zone = report.getLocation().getZone();
         if (zone == null) {
-            return;
+            return Optional.empty();
         }
 
         String probeText = buildProbeText(report);
         if (probeText.isBlank()) {
-            return;
+            return Optional.empty();
         }
 
         ReportType oppositeType = report.getType() == ReportType.LOST ? ReportType.FOUND : ReportType.LOST;
@@ -65,12 +94,16 @@ public class MatchingService {
         // edit must take effect on the next report, and one extra query per creation is nothing.
         MatchingConfig config = matchingConfigRepository.require();
 
+        Set<Long> qualifying = new HashSet<>();
         for (MatchCandidateView candidate : candidates) {
-            evaluateCandidate(report, candidate, config);
+            if (evaluateCandidate(report, candidate, config)) {
+                qualifying.add(candidate.getId());
+            }
         }
+        return Optional.of(qualifying);
     }
 
-    private void evaluateCandidate(Report report, MatchCandidateView candidate, MatchingConfig config) {
+    private boolean evaluateCandidate(Report report, MatchCandidateView candidate, MatchingConfig config) {
         double distanceKm = GeoUtils.haversineKm(
                 report.getLocation().getLatitude().doubleValue(),
                 report.getLocation().getLongitude().doubleValue(),
@@ -78,7 +111,7 @@ public class MatchingService {
                 candidate.getLongitude().doubleValue());
 
         if (distanceKm > config.getMaxDistanceKm().doubleValue()) {
-            return;
+            return false;
         }
 
         int timeGapDays = (int) Math.abs(Duration.between(report.getCreatedAt(), candidate.getCreatedAt()).toDays());
@@ -94,7 +127,7 @@ public class MatchingService {
         int score = distanceScore + textScore + timeScore;
 
         if (score < config.getScoreThreshold()) {
-            return;
+            return false;
         }
 
         Long lostReportId = report.getType() == ReportType.LOST ? report.getId() : candidate.getId();
@@ -104,6 +137,7 @@ public class MatchingService {
         // periodic rescan reconciles anything lost to such a race, so no in-transaction retry.
         upsertMatch(lostReportId, foundReportId, score, distanceKm, distanceScore,
                 timeGapDays, timeScore, similarity, textScore, config);
+        return true;
     }
 
     private void upsertMatch(Long lostReportId, Long foundReportId, int score, double distanceKm,

@@ -15,6 +15,8 @@ public interface ReportMatchRepository extends JpaRepository<ReportMatch, Long>,
 
     Optional<ReportMatch> findByLostReportIdAndFoundReportId(Long lostReportId, Long foundReportId);
 
+    List<ReportMatch> findByLostReportIdOrFoundReportId(Long lostReportId, Long foundReportId);
+
     @Query("SELECT m FROM ReportMatch m "
             + "WHERE m.status = :status "
             + "AND m.lostReport.status = :reportStatus AND m.foundReport.status = :reportStatus "

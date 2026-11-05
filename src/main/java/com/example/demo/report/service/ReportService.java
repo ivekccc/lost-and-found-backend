@@ -18,7 +18,10 @@ import com.example.demo.report.dto.ReportDetailsDTO;
 import com.example.demo.report.dto.ReportImageDTO;
 import com.example.demo.report.dto.ReportImageRequestDTO;
 import com.example.demo.report.dto.ReportListDTO;
+import com.example.demo.report.dto.UpdateReportRequestDto;
 import com.example.demo.report.event.ReportCreatedEvent;
+import com.example.demo.report.event.ReportImagesRemovedEvent;
+import com.example.demo.report.event.ReportUpdatedEvent;
 import com.example.demo.report.model.AbuseReportStatus;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportCategory;
@@ -58,13 +61,17 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ReportService {
@@ -95,6 +102,11 @@ public class ReportService {
     private final SavedReportRepository savedReportRepository;
     private final NotificationFacade notificationFacade;
     private final ApplicationEventPublisher eventPublisher;
+
+    private static final Set<ReportStatus> EDITABLE_STATUSES =
+            EnumSet.of(ReportStatus.ACTIVE, ReportStatus.CLOSED, ReportStatus.EXPIRED);
+    private static final int MAX_IMAGES = 5;
+    private static final int COORDINATE_SCALE = 8;
 
     @Value("${app.reports.default-ttl-days:60}")
     private int defaultTtlDays;
@@ -140,29 +152,9 @@ public class ReportService {
         }
 
         if (createReportRequestDto.getImages() != null) {
-            // A publicId arriving from the client is a reference to someone else's file: account
-            // deletion wipes Cloudinary images by exactly this field. The prefix check is the real
-            // defence; the uniqueness check covers images uploaded before prefixes existed.
-            for (ReportImageRequestDTO imgDto : createReportRequestDto.getImages()) {
-                if (imgDto.getPublicId() == null) {
-                    continue;
-                }
-                if (!cloudinaryService.isOwnedBy(imgDto.getPublicId(), user.getId())) {
-                    throw new IllegalArgumentException("report.imageNotYours");
-                }
-                if (reportImageRepository.existsByPublicId(imgDto.getPublicId())) {
-                    throw new IllegalArgumentException("report.imageAlreadyAttached");
-                }
-            }
-
+            requireAttachableImages(createReportRequestDto.getImages(), user);
             for (int i = 0; i < createReportRequestDto.getImages().size(); i++) {
-                ReportImageRequestDTO imgDto = createReportRequestDto.getImages().get(i);
-                ReportImage image = new ReportImage();
-                image.setReport(saved);
-                image.setImageUrl(imgDto.getImageUrl());
-                image.setPublicId(imgDto.getPublicId());
-                image.setDisplayOrder(i);
-                saved.getImages().add(image);
+                saved.getImages().add(toImage(saved, createReportRequestDto.getImages().get(i), i));
             }
             reportRepository.save(saved);
         }
@@ -202,6 +194,8 @@ public class ReportService {
         // a leftover closedAt would drag the listing back to CLOSED the first time it is moderated.
         report.setClosedAt(null);
         reportRepository.save(report);
+
+        eventPublisher.publishEvent(new ReportUpdatedEvent(this, report.getId()));
 
         return toDetailsDTO(report, user, false);
     }
@@ -300,6 +294,112 @@ public class ReportService {
 
         // Same reason as closing: a deleted listing accepts no claim decisions.
         verificationFacade.declinePendingClaimsForListing(report.getId());
+    }
+
+    @Transactional
+    public ReportDetailsDTO updateReport(Long id, UpdateReportRequestDto dto, String userEmail) {
+        User user = userFacade.requireByEmail(userEmail);
+        Report report = ownedReport(id, user);
+
+        if (!EDITABLE_STATUSES.contains(report.getStatus())) {
+            throw new IllegalArgumentException("report.cannotEdit");
+        }
+
+        boolean matchingInputChanged = !Objects.equals(report.getTitle(), dto.getTitle())
+                || !Objects.equals(report.getDescription(), dto.getDescription());
+
+        report.setTitle(dto.getTitle());
+        report.setDescription(dto.getDescription());
+        report.setContactEmail(dto.getContactEmail());
+        report.setContactPhone(dto.getContactPhone());
+
+        if (!samePoint(report.getLocation(), dto.getLocation().getLatitude(), dto.getLocation().getLongitude())) {
+            Location location = locationFacade.createAt(
+                    dto.getLocation().getLatitude(),
+                    dto.getLocation().getLongitude());
+            requireLocationInActiveCity(location, user);
+            report.setLocation(location);
+            matchingInputChanged = true;
+        }
+
+        List<String> removedPublicIds = replaceImages(report, dto, user);
+
+        reportRepository.save(report);
+
+        if (!removedPublicIds.isEmpty()) {
+            eventPublisher.publishEvent(new ReportImagesRemovedEvent(this, removedPublicIds));
+        }
+        if (matchingInputChanged) {
+            eventPublisher.publishEvent(new ReportUpdatedEvent(this, report.getId()));
+        }
+
+        return toDetailsDTO(report, user,
+                abuseReportRepository.countByTargetReportIdAndStatus(report.getId(), AbuseReportStatus.PENDING)
+                        >= REPORT_VISIBILITY_THRESHOLD);
+    }
+
+    private List<String> replaceImages(Report report, UpdateReportRequestDto dto, User user) {
+        Map<Long, ReportImage> current = report.getImages().stream()
+                .collect(Collectors.toMap(ReportImage::getId, image -> image));
+
+        List<Long> keptIds = dto.getKeptImageIds();
+        if (keptIds.stream().distinct().count() != keptIds.size()
+                || !current.keySet().containsAll(keptIds)) {
+            throw new IllegalArgumentException("report.imageNotInReport");
+        }
+
+        List<ReportImageRequestDTO> newImages = dto.getNewImages() == null ? List.of() : dto.getNewImages();
+        if (keptIds.size() + newImages.size() > MAX_IMAGES) {
+            throw new IllegalArgumentException("report.tooManyImages");
+        }
+        requireAttachableImages(newImages, user);
+
+        List<String> removedPublicIds = current.values().stream()
+                .filter(image -> !keptIds.contains(image.getId()))
+                .map(ReportImage::getPublicId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        report.getImages().removeIf(image -> !keptIds.contains(image.getId()));
+        for (int i = 0; i < keptIds.size(); i++) {
+            current.get(keptIds.get(i)).setDisplayOrder(i);
+        }
+        for (int i = 0; i < newImages.size(); i++) {
+            report.getImages().add(toImage(report, newImages.get(i), keptIds.size() + i));
+        }
+        return removedPublicIds;
+    }
+
+    private void requireAttachableImages(List<ReportImageRequestDTO> images, User user) {
+        // A publicId arriving from the client is a reference to someone else's file: account
+        // deletion wipes Cloudinary images by exactly this field. The prefix check is the real
+        // defence; the uniqueness check covers images uploaded before prefixes existed.
+        for (ReportImageRequestDTO imgDto : images) {
+            if (imgDto.getPublicId() == null) {
+                continue;
+            }
+            if (!cloudinaryService.isOwnedBy(imgDto.getPublicId(), user.getId())) {
+                throw new IllegalArgumentException("report.imageNotYours");
+            }
+            if (reportImageRepository.existsByPublicId(imgDto.getPublicId())) {
+                throw new IllegalArgumentException("report.imageAlreadyAttached");
+            }
+        }
+    }
+
+    private ReportImage toImage(Report report, ReportImageRequestDTO imgDto, int displayOrder) {
+        ReportImage image = new ReportImage();
+        image.setReport(report);
+        image.setImageUrl(imgDto.getImageUrl());
+        image.setPublicId(imgDto.getPublicId());
+        image.setDisplayOrder(displayOrder);
+        return image;
+    }
+
+    private boolean samePoint(Location location, BigDecimal latitude, BigDecimal longitude) {
+        return location != null
+                && location.getLatitude().compareTo(latitude.setScale(COORDINATE_SCALE, RoundingMode.HALF_UP)) == 0
+                && location.getLongitude().compareTo(longitude.setScale(COORDINATE_SCALE, RoundingMode.HALF_UP)) == 0;
     }
 
     /**
@@ -650,6 +750,8 @@ public class ReportService {
                 buildFullName(report.getUser()),
                 hasText(report.getContactEmail()),
                 hasText(report.getContactPhone()),
+                isOwner ? report.getContactEmail() : null,
+                isOwner ? report.getContactPhone() : null,
                 imageDtos,
                 challengeId,
                 myChallengeId,
