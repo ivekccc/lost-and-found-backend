@@ -2,6 +2,7 @@ package com.example.demo.location.service;
 
 import com.example.demo.location.dto.AutoCompleteSuggestionDTO;
 import com.example.demo.location.dto.CityDto;
+import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.location.dto.ReverseGeocodeDto;
 import com.example.demo.location.dto.locationiq.LocationIqAddress;
 import com.example.demo.location.dto.locationiq.LocationIqResult;
@@ -9,9 +10,10 @@ import com.example.demo.location.model.City;
 import com.example.demo.location.model.Location;
 import com.example.demo.shared.exception.LocationOutsideSupportedCitiesException;
 import com.example.demo.shared.exception.RateLimitExceededException;
-import com.example.demo.shared.exception.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -22,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LocationService {
@@ -44,6 +48,7 @@ public class LocationService {
 
     private final RestTemplate restTemplate;
     private final CityService cityService;
+    private final ZoneService zoneService;
 
     /**
      * Address suggestions, limited to the city the caller is browsing.
@@ -63,7 +68,8 @@ public class LocationService {
                 + "&countrycodes=" + defaultCountry
                 + "&viewbox=" + viewbox
                 + "&bounded=1"
-                + "&limit=" + CANDIDATE_LIMIT;
+                + "&limit=" + CANDIDATE_LIMIT
+                + "&accept-language=" + addressLanguage();
         try {
             LocationIqResult[] results = restTemplate.getForObject(url, LocationIqResult[].class);
             if (results == null || results.length == 0) {
@@ -82,14 +88,6 @@ public class LocationService {
         }
     }
 
-    /**
-     * The address under a pair of device coordinates.
-     *
-     * The city is decided from the coordinates of the MATCHED ADDRESS, not from the device's own
-     * position: the listing later resolves its zone through {@link #lookupLocation}, which reads
-     * the address, so judging the device point could accept a fix near a city border whose nearest
-     * address lies outside it — and the listing would then land in the wrong city or none at all.
-     */
     public ReverseGeocodeDto reverseGeocode(double latitude, double longitude, String userEmail) {
         if (!isValidCoordinate(latitude, 90) || !isValidCoordinate(longitude, 180)) {
             throw new IllegalArgumentException(
@@ -97,23 +95,53 @@ public class LocationService {
         }
 
         City activeCity = cityService.getActiveCity(userEmail);
+        CityDto city = cityService
+                .detectCity(latitude, longitude)
+                .orElseThrow(() -> new LocationOutsideSupportedCitiesException(
+                        "location.outsideSupportedCities"));
+
+        AutoCompleteSuggestionDTO suggestion = fetchAddress(latitude, longitude)
+                .map(this::toAutoCompleteDTO)
+                .orElse(null);
+        if (suggestion != null) {
+            zoneService.resolveZone(BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude))
+                    .map(LocationDTO::zoneLabel)
+                    .ifPresent(suggestion::setDisplayAddress);
+        }
+
+        return new ReverseGeocodeDto(
+                suggestion,
+                city,
+                city.getId().equals(activeCity.getId()));
+    }
+
+    public Location describePoint(double latitude, double longitude) {
+        try {
+            return fetchAddress(latitude, longitude)
+                    .map(this::toLocation)
+                    .orElseGet(() -> Location.builder().build());
+        } catch (RuntimeException e) {
+            log.warn("LocationIQ could not describe {},{}: {}", latitude, longitude, e.getMessage());
+            return Location.builder().build();
+        }
+    }
+
+    private Optional<LocationIqResult> fetchAddress(double latitude, double longitude) {
         String url = baseUrl + "/reverse"
                 + "?key=" + apiKey
                 + "&lat=" + latitude
                 + "&lon=" + longitude
                 + "&format=json"
-                + "&addressdetails=1";
+                + "&addressdetails=1"
+                + "&accept-language=" + addressLanguage();
 
         LocationIqResult result;
         try {
             // Unlike /autocomplete and /lookup, /reverse answers with a single object.
             result = restTemplate.getForObject(url, LocationIqResult.class);
         } catch (HttpClientErrorException.NotFound e) {
-            throw new ResourceNotFoundException("location.noAddress");
+            return Optional.empty();
         } catch (HttpClientErrorException.TooManyRequests e) {
-            // Autocomplete degrades to an empty list here, but an empty answer means nothing to a
-            // button the user just pressed: without this the provider's throttling surfaced as a
-            // bare 500, and the fix is simply to wait a moment.
             throw new RateLimitExceededException(
                     "location.serviceBusy",
                     LOCATIONIQ_RETRY_AFTER_SECONDS);
@@ -121,28 +149,11 @@ public class LocationService {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
         }
 
-        if (result == null || result.getLat() == null || result.getLon() == null) {
-            throw new ResourceNotFoundException("location.noAddress");
+        if (result == null || parseCoordinate(result.getLat()) == null
+                || parseCoordinate(result.getLon()) == null) {
+            return Optional.empty();
         }
-
-        double resultLatitude;
-        double resultLongitude;
-        try {
-            resultLatitude = Double.parseDouble(result.getLat());
-            resultLongitude = Double.parseDouble(result.getLon());
-        } catch (NumberFormatException e) {
-            throw new ResourceNotFoundException("location.noUsableAddress");
-        }
-
-        CityDto city = cityService
-                .detectCity(resultLatitude, resultLongitude)
-                .orElseThrow(() -> new LocationOutsideSupportedCitiesException(
-                        "location.outsideSupportedCities"));
-
-        return new ReverseGeocodeDto(
-                toAutoCompleteDTO(result),
-                city,
-                city.getId().equals(activeCity.getId()));
+        return Optional.of(result);
     }
 
     private boolean isValidCoordinate(double value, double bound) {
@@ -166,27 +177,12 @@ public class LocationService {
         }
     }
 
-    public Location lookupLocation(String osmId, String osmType) {
-        String typePrefix = osmType.substring(0, 1).toUpperCase();
-        String url = "https://us1.locationiq.com/v1/lookup"
-                + "?key=" + apiKey
-                + "&osm_ids=" + typePrefix + osmId
-                + "&format=json"
-                + "&addressdetails=1";
-
-        LocationIqResult[] results = restTemplate.getForObject(url, LocationIqResult[].class);
-        if (results == null || results.length == 0) {
-            throw new RuntimeException("Location not found for OSM ID: " + osmId);
-        }
-
-        LocationIqResult result = results[0];
+    private Location toLocation(LocationIqResult result) {
         LocationIqAddress address = result.getAddress();
 
         Location.LocationBuilder builder = Location.builder()
-                .latitude(new BigDecimal(result.getLat()))
-                .longitude(new BigDecimal(result.getLon()))
                 .formattedAddress(result.getDisplayName())
-                .osmId(osmId);
+                .osmId(result.getOsmId());
 
         if (address != null) {
             builder.country(address.getCountry())
@@ -198,14 +194,58 @@ public class LocationService {
         return builder.build();
     }
 
+    private Double parseCoordinate(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Double.valueOf(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private AutoCompleteSuggestionDTO toAutoCompleteDTO(LocationIqResult result) {
         AutoCompleteSuggestionDTO dto = new AutoCompleteSuggestionDTO();
         dto.setOsmId(result.getOsmId());
         dto.setOsmType(result.getOsmType());
         dto.setDisplayName(result.getDisplayName());
-        dto.setDisplayPlace(result.getDisplayPlace());
-        dto.setDisplayAddress(result.getDisplayAddress());
+        dto.setDisplayPlace(result.getDisplayPlace() != null
+                ? result.getDisplayPlace()
+                : shortPlace(result.getAddress()));
+        dto.setDisplayAddress(result.getDisplayAddress() != null
+                ? result.getDisplayAddress()
+                : shortArea(result.getAddress()));
+        dto.setLatitude(parseCoordinate(result.getLat()));
+        dto.setLongitude(parseCoordinate(result.getLon()));
         return dto;
+    }
+
+    private String addressLanguage() {
+        return "sr".equals(LocaleContextHolder.getLocale().getLanguage()) ? "sr-Latn" : "en,sr-Latn";
+    }
+
+    private String shortPlace(LocationIqAddress address) {
+        if (address == null) {
+            return null;
+        }
+        if (address.getRoad() != null) {
+            return address.getHouseNumber() != null
+                    ? address.getRoad() + " " + address.getHouseNumber()
+                    : address.getRoad();
+        }
+        return address.getName();
+    }
+
+    private String shortArea(LocationIqAddress address) {
+        if (address == null) {
+            return null;
+        }
+        String district = firstNonNull(address.getSuburb(), address.getCityDistrict(), address.getNeighbourhood());
+        if (district == null || district.equals(address.getCity())) {
+            return address.getCity();
+        }
+        return address.getCity() != null ? district + ", " + address.getCity() : district;
     }
 
     private String firstNonNull(String... values) {

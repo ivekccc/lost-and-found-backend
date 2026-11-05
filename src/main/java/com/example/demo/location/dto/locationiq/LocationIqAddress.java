@@ -11,6 +11,9 @@ public class LocationIqAddress {
     private String country;
     private String city;
     private String road;
+
+    @JsonProperty("house_number")
+    private String houseNumber;
     private String name;
     private String suburb;
 

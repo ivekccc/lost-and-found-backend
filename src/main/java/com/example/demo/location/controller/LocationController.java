@@ -38,19 +38,19 @@ public class LocationController {
     }
 
     @GetMapping("/reverse")
-    @Operation(summary = "Resolve coordinates to an address",
-            description = "Turns a device position into the same kind of suggestion autocomplete returns, "
-                    + "so \"use my current location\" ends up on the identical path as picking an address by "
-                    + "hand. The city is decided from the matched address rather than the raw fix. The "
-                    + "suggestion is returned even when it falls outside the city the caller is browsing — "
-                    + "matchesActiveCity says so, and the client can offer to switch city.")
+    @Operation(summary = "Describe a point on the map",
+            description = "Used by the map picker under the pin. The city is decided from the point itself, "
+                    + "because the point is what a listing stores. The nearest address is returned as a "
+                    + "suggestion, or null when the point has none (a park, a field). The answer is given "
+                    + "even when the point is outside the city the caller is browsing — matchesActiveCity "
+                    + "says so, and the client can offer to switch city.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Address resolved",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = ReverseGeocodeDto.class))),
             @ApiResponse(responseCode = "400", description = "Coordinates out of range"),
-            @ApiResponse(responseCode = "404", description = "No address at these coordinates"),
-            @ApiResponse(responseCode = "409", description = "The place is outside every supported city")
+            @ApiResponse(responseCode = "409", description = "The point is outside every supported city"),
+            @ApiResponse(responseCode = "429", description = "The address provider is busy; retry after a moment")
     })
     public ResponseEntity<ReverseGeocodeDto> reverseGeocode(
             @RequestParam double latitude,

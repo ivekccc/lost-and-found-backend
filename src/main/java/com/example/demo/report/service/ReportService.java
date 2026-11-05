@@ -120,7 +120,9 @@ public class ReportService {
         report.setStatus(ReportStatus.ACTIVE);
         report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
 
-        Location location = locationFacade.findOrCreate(createReportRequestDto.getLocation());
+        Location location = locationFacade.createAt(
+                createReportRequestDto.getLocation().getLatitude(),
+                createReportRequestDto.getLocation().getLongitude());
         requireLocationInActiveCity(location, user);
         report.setLocation(location);
 

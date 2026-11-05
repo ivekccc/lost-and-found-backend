@@ -48,11 +48,15 @@ public class LocationDTO {
      * Zone label: "Mirijevo, Zvezdara" for a level-2 zone, "Zvezdara, Beograd" for a municipality.
      * The second part is dropped when it repeats the first, or Bajina Bašta reads twice.
      */
-    private static String zoneLabel(Location location) {
+    public static String zoneLabel(Location location) {
         Zone zone = location.getZone();
         if (zone == null) {
             return location.getCity() != null ? location.getCity() : "Nepoznata lokacija";
         }
+        return zoneLabel(zone);
+    }
+
+    public static String zoneLabel(Zone zone) {
         String parent = zone.getParentName() != null ? zone.getParentName() : zone.getCity();
         if (parent == null || parent.equals(zone.getName())) {
             return zone.getName();

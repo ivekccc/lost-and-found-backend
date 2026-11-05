@@ -2,12 +2,10 @@ package com.example.demo.location.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-/**
- * An address suggestion from LocationIQ. osmId and osmType are required because a listing is
- * created from that pair — clients used to cast them because the generated type had them optional.
- */
+
 @Data
 @NoArgsConstructor
 @Schema(description = "Address suggestion for report creation.")
@@ -26,4 +24,12 @@ public class AutoCompleteSuggestionDTO {
     private String displayPlace;
 
     private String displayAddress;
+
+    @NotNull
+    @Schema(description = "Latitude of the address, where the map picker opens")
+    private Double latitude;
+
+    @NotNull
+    @Schema(description = "Longitude of the address, where the map picker opens")
+    private Double longitude;
 }

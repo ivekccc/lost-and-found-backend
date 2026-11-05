@@ -2,13 +2,14 @@ package com.example.demo.location.service;
 
 import com.example.demo.location.LocationFacade;
 import com.example.demo.location.dto.CityDto;
-import com.example.demo.location.dto.LocationRequestDTO;
+import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.location.dto.ReportZoneDto;
 import com.example.demo.location.model.City;
 import com.example.demo.location.model.Location;
 import com.example.demo.location.model.Zone;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import com.example.demo.location.repository.CityRepository;
 
 import java.util.List;
@@ -28,18 +29,22 @@ public class DefaultLocationFacade implements LocationFacade {
     private final ZoneService zoneService;
     private final CityService cityService;
 
+    private static final int COORDINATE_SCALE = 8;
+
     @Override
     @Transactional
-    public Location findOrCreate(LocationRequestDTO request) {
-        return locationRepository.findByOsmId(request.getOsmId())
-                .orElseGet(() -> {
-                    Location location = locationService.lookupLocation(
-                            request.getOsmId(), request.getOsmType());
-                    location.setZone(zoneService
-                            .resolveZone(location.getLatitude(), location.getLongitude())
-                            .orElse(null));
-                    return locationRepository.save(location);
-                });
+    public Location createAt(BigDecimal latitude, BigDecimal longitude) {
+        Zone zone = zoneService.resolveZone(latitude, longitude).orElse(null);
+        Location location = zone == null
+                ? Location.builder().build()
+                : locationService.describePoint(latitude.doubleValue(), longitude.doubleValue());
+        location.setLatitude(latitude.setScale(COORDINATE_SCALE, RoundingMode.HALF_UP));
+        location.setLongitude(longitude.setScale(COORDINATE_SCALE, RoundingMode.HALF_UP));
+        location.setZone(zone);
+        if (location.getFormattedAddress() == null) {
+            location.setFormattedAddress(LocationDTO.zoneLabel(location));
+        }
+        return locationRepository.save(location);
     }
 
     @Override

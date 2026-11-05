@@ -20,16 +20,16 @@ import lombok.NoArgsConstructor;
 @Schema(name = "ReverseGeocodeDto", description = "Address resolved from coordinates, with the city it falls in")
 public class ReverseGeocodeDto {
 
-    @NotNull
-    @Schema(description = "Same shape autocomplete returns, so the client can select it through the same path")
+    @Schema(description = "The nearest address, in the same shape autocomplete returns. Null when there is "
+            + "no address at the point, such as inside a park — the point itself is still valid")
     private AutoCompleteSuggestionDTO suggestion;
 
     @NotNull
-    @Schema(description = "The supported city the address falls in")
+    @Schema(description = "The supported city the point falls in")
     private CityDto city;
 
     @NotNull
-    @Schema(description = "False when the address is in a different city than the one the caller is browsing; "
-            + "the client then has to switch city before the address can be used for a listing")
+    @Schema(description = "False when the point is in a different city than the one the caller is browsing; "
+            + "the client then has to switch city before the point can be used for a listing")
     private Boolean matchesActiveCity;
 }
