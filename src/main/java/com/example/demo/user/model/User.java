@@ -59,4 +59,8 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "active_city_id", nullable = false)
     private City activeCity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language", nullable = false, length = 10)
+    private AppLanguage language = AppLanguage.SR_LATN;
 }

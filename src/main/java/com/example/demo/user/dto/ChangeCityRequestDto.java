@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Schema(name = "ChangeCityRequestDto", description = "Which city to browse from now on.")
 public class ChangeCityRequestDto {
 
-    @NotNull(message = "City is required")
+    @NotNull(message = "{validation.city.required}")
     @Schema(description = "Id from GET /cities.")
     private Long cityId;
 }

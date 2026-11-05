@@ -160,18 +160,18 @@ public class MatchingService {
         notificationFacade.notify(
                 lostReport.getUser().getId(),
                 NotificationType.MATCH_FOUND,
-                "Possible match for your lost item",
-                "A found item \"" + foundReport.getTitle() + "\" looks similar to your report \""
-                        + lostReport.getTitle() + "\". Check it out.",
-                matchDataJson(match.getId(), lostReport.getId(), foundReport.getId()));
+                "notification.matchForLost.title",
+                "notification.matchForLost.body",
+                matchDataJson(match.getId(), lostReport.getId(), foundReport.getId()),
+                foundReport.getTitle(), lostReport.getTitle());
 
         notificationFacade.notify(
                 foundReport.getUser().getId(),
                 NotificationType.MATCH_FOUND,
-                "Someone may be looking for this item",
-                "A lost report \"" + lostReport.getTitle() + "\" matches the item you found \""
-                        + foundReport.getTitle() + "\".",
-                matchDataJson(match.getId(), foundReport.getId(), lostReport.getId()));
+                "notification.matchForFound.title",
+                "notification.matchForFound.body",
+                matchDataJson(match.getId(), foundReport.getId(), lostReport.getId()),
+                lostReport.getTitle(), foundReport.getTitle());
     }
 
     private String matchDataJson(Long matchId, Long myReportId, Long otherReportId) {

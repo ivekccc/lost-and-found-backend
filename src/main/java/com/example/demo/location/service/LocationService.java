@@ -93,7 +93,7 @@ public class LocationService {
     public ReverseGeocodeDto reverseGeocode(double latitude, double longitude, String userEmail) {
         if (!isValidCoordinate(latitude, 90) || !isValidCoordinate(longitude, 180)) {
             throw new IllegalArgumentException(
-                    "Latitude must be between -90 and 90, longitude between -180 and 180");
+                    "location.coordinatesOutOfRange");
         }
 
         City activeCity = cityService.getActiveCity(userEmail);
@@ -109,20 +109,20 @@ public class LocationService {
             // Unlike /autocomplete and /lookup, /reverse answers with a single object.
             result = restTemplate.getForObject(url, LocationIqResult.class);
         } catch (HttpClientErrorException.NotFound e) {
-            throw new ResourceNotFoundException("No address found at these coordinates");
+            throw new ResourceNotFoundException("location.noAddress");
         } catch (HttpClientErrorException.TooManyRequests e) {
             // Autocomplete degrades to an empty list here, but an empty answer means nothing to a
             // button the user just pressed: without this the provider's throttling surfaced as a
             // bare 500, and the fix is simply to wait a moment.
             throw new RateLimitExceededException(
-                    "Location service is busy right now — try again in a moment",
+                    "location.serviceBusy",
                     LOCATIONIQ_RETRY_AFTER_SECONDS);
         } catch (Exception e) {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
         }
 
         if (result == null || result.getLat() == null || result.getLon() == null) {
-            throw new ResourceNotFoundException("No address found at these coordinates");
+            throw new ResourceNotFoundException("location.noAddress");
         }
 
         double resultLatitude;
@@ -131,13 +131,13 @@ public class LocationService {
             resultLatitude = Double.parseDouble(result.getLat());
             resultLongitude = Double.parseDouble(result.getLon());
         } catch (NumberFormatException e) {
-            throw new ResourceNotFoundException("No usable address found at these coordinates");
+            throw new ResourceNotFoundException("location.noUsableAddress");
         }
 
         CityDto city = cityService
                 .detectCity(resultLatitude, resultLongitude)
                 .orElseThrow(() -> new LocationOutsideSupportedCitiesException(
-                        "This place is outside the cities the app covers — Beograd, Novi Sad and Bajina Bašta"));
+                        "location.outsideSupportedCities"));
 
         return new ReverseGeocodeDto(
                 toAutoCompleteDTO(result),

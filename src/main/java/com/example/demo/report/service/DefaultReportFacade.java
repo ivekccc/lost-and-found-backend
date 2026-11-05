@@ -30,7 +30,7 @@ public class DefaultReportFacade implements ReportFacade {
     @Transactional(readOnly = true)
     public Report requireById(Long reportId) {
         return reportRepository.findById(reportId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report with id " + reportId + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
     }
 
     @Override
@@ -44,14 +44,14 @@ public class DefaultReportFacade implements ReportFacade {
     public Report requireVisibleById(Long reportId) {
         return reportRepository.findById(reportId)
                 .filter(report -> report.getStatus() != ReportStatus.DELETED)
-                .orElseThrow(() -> new ResourceNotFoundException("Report with id " + reportId + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
     }
 
     @Override
     @Transactional
     public Report lockById(Long reportId) {
         return reportRepository.findByIdForUpdate(reportId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
     }
 
     @Override
@@ -76,7 +76,7 @@ public class DefaultReportFacade implements ReportFacade {
     @Transactional(readOnly = true)
     public ReportCategory requireCategoryById(Long categoryId) {
         return reportCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("category.notFound"));
     }
 
     @Override

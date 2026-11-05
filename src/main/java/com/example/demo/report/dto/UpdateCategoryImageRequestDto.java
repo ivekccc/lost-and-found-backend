@@ -9,9 +9,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateCategoryImageRequestDto {
 
-    @NotBlank(message = "Image URL is required")
+    @NotBlank(message = "{validation.image.url.required}")
     private String imageUrl;
 
-    @NotBlank(message = "Image public id is required")
+    @NotBlank(message = "{validation.image.publicId.required}")
     private String imagePublicId;
 }

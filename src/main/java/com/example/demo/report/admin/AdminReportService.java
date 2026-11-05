@@ -1,5 +1,7 @@
 package com.example.demo.report.admin;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
 import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.report.dto.ReportImageDTO;
 import com.example.demo.report.model.Report;
@@ -53,7 +55,7 @@ public class AdminReportService {
                 report.getId(),
                 report.getTitle(),
                 report.getType(),
-                report.getCategory().getName(),
+                report.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 report.getStatus(),
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),
@@ -74,7 +76,7 @@ public class AdminReportService {
     public AdminReportDetailsDTO getReportById(Long id) {
         Report report = reportRepository.findById(id)
                 .filter(r -> r.getStatus() != ReportStatus.DELETED)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
         return mapToDetailsDTO(report);
     }
 
@@ -82,7 +84,7 @@ public class AdminReportService {
     public void flagReport(Long id, String adminEmail) {
         Report report = reportRepository.findById(id)
                 .filter(r -> r.getStatus() != ReportStatus.DELETED)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
         report.setStatus(ReportStatus.FLAGGED);
         reportRepository.save(report);
         abuseReportService.resolveReportsForReport(id, adminEmail);
@@ -96,7 +98,7 @@ public class AdminReportService {
     public void unflagReport(Long id) {
         Report report = reportRepository.findById(id)
                 .filter(r -> r.getStatus() == ReportStatus.FLAGGED)
-                .orElseThrow(() -> new ResourceNotFoundException("Flagged report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.flaggedNotFound"));
 
         report.setStatus(restoredStatusFor(report));
         reportRepository.save(report);
@@ -134,7 +136,7 @@ public class AdminReportService {
                 report.getDescription(),
                 report.getType(),
                 report.getCategory().getId(),
-                report.getCategory().getName(),
+                report.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 report.getStatus(),
                 LocationDTO.fromEntity(report.getLocation()),
                 report.getCreatedAt(),

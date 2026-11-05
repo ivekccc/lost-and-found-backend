@@ -35,7 +35,7 @@ public class CityService {
     public Optional<CityDto> detectCity(double latitude, double longitude) {
         if (!isValidCoordinate(latitude, 90) || !isValidCoordinate(longitude, 180)) {
             throw new IllegalArgumentException(
-                    "Latitude must be between -90 and 90, longitude between -180 and 180");
+                    "location.coordinatesOutOfRange");
         }
         return cityRepository.findCityContaining(latitude, longitude).map(CityService::toDto);
     }
@@ -44,12 +44,12 @@ public class CityService {
     public City setActiveCity(String userEmail, Long cityId) {
         User user = userFacade.requireByEmail(userEmail);
         City city = cityRepository.findById(cityId)
-                .orElseThrow(() -> new ResourceNotFoundException("City not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("city.notFound"));
 
         // An inactive city is one whose zones are not ready. Allowing it would give the user an empty
         // search with no explanation, which reads as a fault.
         if (!Boolean.TRUE.equals(city.getActive())) {
-            throw new IllegalArgumentException("This city is not available yet");
+            throw new IllegalArgumentException("city.notAvailable");
         }
 
         user.setActiveCity(city);
@@ -60,7 +60,7 @@ public class CityService {
     @Transactional(readOnly = true)
     public City getActiveCity(String userEmail) {
         return cityRepository.findActiveCityByUserEmail(userEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
     }
 
     public static CityDto toDto(City city) {

@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class LogoutRequestDto {
 
-    @NotBlank(message = "Refresh token is required")
+    @NotBlank(message = "{validation.refreshToken.required}")
     private String refreshToken;
 
     @Schema(description = "Push token of this device. Sent so the server stops pushing to a device "

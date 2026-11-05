@@ -14,16 +14,23 @@ import java.util.List;
 @AllArgsConstructor
 public class CreateQuestionTemplateRequestDto {
 
-    @NotNull(message = "Category is required")
+    @NotNull(message = "{validation.category.required}")
     private Long categoryId;
 
-    @NotBlank(message = "Prompt is required")
-    @Size(max = 500, message = "Prompt must be less than 500 characters")
+    @NotBlank(message = "{validation.template.prompt.required}")
+    @Size(max = 500, message = "{validation.template.prompt.size}")
     private String prompt;
 
-    @NotNull(message = "Kind is required")
+    @NotBlank(message = "{validation.template.promptSr.required}")
+    @Size(max = 500, message = "{validation.template.prompt.size}")
+    private String promptSr;
+
+    @NotNull(message = "{validation.template.kind.required}")
     private QuestionKind kind;
 
-    @Size(max = 10, message = "Maximum 10 default choices")
+    @Size(max = 10, message = "{validation.template.defaultChoices.size}")
     private List<@NotBlank @Size(max = 100) String> defaultChoices;
+
+    @Size(max = 10, message = "{validation.template.defaultChoices.size}")
+    private List<@NotBlank @Size(max = 100) String> defaultChoicesSr;
 }

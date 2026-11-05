@@ -1,5 +1,9 @@
 package com.example.demo.user.service;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
+import com.example.demo.user.model.AppLanguage;
+
 import com.example.demo.location.model.City;
 import com.example.demo.location.LocationFacade;
 import com.example.demo.notification.NotificationFacade;
@@ -72,7 +76,7 @@ public class AuthService {
     @Transactional
     public void register(RegisterRequestDTO req) {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
-            throw new UserAlreadyExistsException("Email already exists");
+            throw new UserAlreadyExistsException("auth.emailExists");
         }
 
         
@@ -82,7 +86,7 @@ public class AuthService {
             LocalDateTime now = LocalDateTime.now();
             if (retryAt.isAfter(now)) {
                 throw new RateLimitExceededException(
-                        "A verification code was just sent to this address. Please wait a minute.",
+                        "auth.codeJustSent",
                         Duration.between(now, retryAt).toSeconds());
             }
         });
@@ -110,14 +114,14 @@ public class AuthService {
     public void resendCode(ResendCodeRequestDto req) {
         PreRegistration preReg = preRegistrationRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new InvalidVerificationException(
-                        "No pending registration for this email"));
+                        "auth.noPendingRegistration"));
 
         LocalDateTime sentAt = preReg.getExpiresAt().minusMinutes(codeExpiryMinutes);
         LocalDateTime retryAt = sentAt.plusSeconds(RESEND_COOLDOWN_SECONDS);
         LocalDateTime now = LocalDateTime.now();
         if (retryAt.isAfter(now)) {
             throw new RateLimitExceededException(
-                    "Please wait a minute before requesting a new code",
+                    "auth.waitBeforeNewCode",
                     Duration.between(now, retryAt).toSeconds());
         }
 
@@ -135,11 +139,11 @@ public class AuthService {
        
         PreRegistration preReg = preRegistrationRepository
                 .findByEmailAndVerificationCode(req.getEmail(), req.getCode())
-                .orElseThrow(() -> new InvalidVerificationException("Invalid verification code"));
+                .orElseThrow(() -> new InvalidVerificationException("auth.invalidVerificationCode"));
 
         if (preReg.getExpiresAt().isBefore(LocalDateTime.now())) {
             preRegistrationRepository.delete(preReg);
-            throw new InvalidVerificationException("Verification code expired");
+            throw new InvalidVerificationException("auth.verificationCodeExpired");
         }
         User user = new User();
         user.setEmail(preReg.getEmail());
@@ -149,6 +153,7 @@ public class AuthService {
         user.setLastName(preReg.getLastName());
         user.setPhoneNumber(preReg.getPhoneNumber());
         user.setStatus(UserStatus.ACTIVE);
+        user.setLanguage(AppLanguage.fromLocale(LocaleContextHolder.getLocale()));
         user.setCreatedAt(LocalDateTime.now());
         user.setRole(UserRole.USER);
         user.setActiveCity(defaultCity());
@@ -213,6 +218,7 @@ public class AuthService {
         user.setLastName(identity.lastName());
         user.setGoogleSub(identity.subject());
         user.setStatus(UserStatus.ACTIVE);
+        user.setLanguage(AppLanguage.fromLocale(LocaleContextHolder.getLocale()));
         user.setCreatedAt(LocalDateTime.now());
         user.setRole(UserRole.USER);
         user.setActiveCity(defaultCity());
@@ -262,7 +268,7 @@ public class AuthService {
 
         if (reset != null && reset.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
             throw new RateLimitExceededException(
-                    "Please wait a minute before requesting a new code",
+                    "auth.waitBeforeNewCode",
                     Duration.between(now, reset.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS)).toSeconds());
         }
 
@@ -283,15 +289,15 @@ public class AuthService {
     public void resetPassword(ResetPasswordRequestDto req) {
         PasswordReset reset = passwordResetRepository.findByEmail(req.getEmail())
                 .filter(r -> r.getCode().equals(req.getCode()))
-                .orElseThrow(() -> new InvalidVerificationException("Invalid or expired code"));
+                .orElseThrow(() -> new InvalidVerificationException("auth.invalidOrExpiredCode"));
 
         if (reset.getExpiresAt().isBefore(LocalDateTime.now())) {
             passwordResetRepository.delete(reset);
-            throw new InvalidVerificationException("Invalid or expired code");
+            throw new InvalidVerificationException("auth.invalidOrExpiredCode");
         }
 
         User user = userRepository.findByEmail(req.getEmail())
-                .orElseThrow(() -> new InvalidVerificationException("Invalid or expired code"));
+                .orElseThrow(() -> new InvalidVerificationException("auth.invalidOrExpiredCode"));
 
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
@@ -306,11 +312,11 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         if (!userDetails.isEnabled() || !jwtUtil.validateRefreshToken(refreshToken, userDetails)) {
-            throw new InvalidTokenException("Invalid refresh token");
+            throw new InvalidTokenException("auth.invalidRefreshToken");
         }
 
         if (!refreshTokenService.consume(refreshToken)) {
-            throw new InvalidTokenException("Refresh token is no longer valid");
+            throw new InvalidTokenException("auth.refreshTokenRevoked");
         }
 
         User user = userRepository.findByEmail(username)
@@ -342,7 +348,7 @@ public class AuthService {
         try {
             return jwtUtil.extractUsername(refreshToken);
         } catch (JwtException e) {
-            throw new InvalidTokenException("Invalid refresh token");
+            throw new InvalidTokenException("auth.invalidRefreshToken");
         }
     }
 }

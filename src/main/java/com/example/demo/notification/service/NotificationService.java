@@ -1,5 +1,9 @@
 package com.example.demo.notification.service;
 
+import java.util.Locale;
+
+import org.springframework.context.MessageSource;
+
 import com.example.demo.notification.dto.NotificationDTO;
 import com.example.demo.notification.dto.UnreadCountDTO;
 import com.example.demo.notification.event.NotificationCreatedEvent;
@@ -30,20 +34,23 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserFacade userFacade;
     private final ApplicationEventPublisher eventPublisher;
+    private final MessageSource messageSource;
 
     public void saveToken(String email, String fcmToken) {
         userFacade.savePushToken(email, fcmToken);
     }
 
     @Transactional
-    public Notification createNotification(Long userId, NotificationType type, String title, String body, String dataJson) {
+    public Notification createNotification(Long userId, NotificationType type, String titleKey, String bodyKey,
+                                           String dataJson, Object... arguments) {
         User user = userFacade.requireById(userId);
+        Locale locale = user.getLanguage().toLocale();
 
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setType(type);
-        notification.setTitle(title);
-        notification.setBody(body);
+        notification.setTitle(messageSource.getMessage(titleKey, arguments, locale));
+        notification.setBody(messageSource.getMessage(bodyKey, arguments, locale));
         notification.setDataJson(dataJson);
 
         if (user.getFcmToken() == null) {
@@ -93,10 +100,10 @@ public class NotificationService {
         User user = userFacade.requireByEmail(email);
 
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("notification.notFound"));
 
         if (!notification.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Notification not found");
+            throw new ResourceNotFoundException("notification.notFound");
         }
 
         notification.setIsRead(true);

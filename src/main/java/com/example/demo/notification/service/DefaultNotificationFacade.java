@@ -17,8 +17,8 @@ public class DefaultNotificationFacade implements NotificationFacade {
 
     @Override
     @Transactional
-    public void notify(Long userId, NotificationType type, String title, String body, String dataJson) {
-        notificationService.createNotification(userId, type, title, body, dataJson);
+    public void notify(Long userId, NotificationType type, String titleKey, String bodyKey, String dataJson, Object... arguments) {
+        notificationService.createNotification(userId, type, titleKey, bodyKey, dataJson, arguments);
     }
 
     @Override

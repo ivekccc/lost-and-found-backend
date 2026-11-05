@@ -27,21 +27,21 @@ public class GoogleTokenVerifierService {
         try {
             signature = tokenVerifier.verify(idToken);
         } catch (TokenVerifier.VerificationException e) {
-            throw new InvalidTokenException("Invalid Google token");
+            throw new InvalidTokenException("auth.google.invalidToken");
         }
 
         JsonWebToken.Payload payload = signature.getPayload();
 
         if (!ALLOWED_ISSUERS.contains(payload.getIssuer())) {
-            throw new InvalidTokenException("Invalid Google token issuer");
+            throw new InvalidTokenException("auth.google.invalidIssuer");
         }
         if (!Boolean.parseBoolean(String.valueOf(payload.get("email_verified")))) {
-            throw new InvalidTokenException("Google account email is not verified");
+            throw new InvalidTokenException("auth.google.emailNotVerified");
         }
 
         String email = (String) payload.get("email");
         if (email == null || email.isBlank() || !email.contains("@")) {
-            throw new InvalidTokenException("Google token does not contain an email");
+            throw new InvalidTokenException("auth.google.noEmail");
         }
 
         return new GoogleIdentity(

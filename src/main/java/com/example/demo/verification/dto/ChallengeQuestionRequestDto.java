@@ -15,21 +15,21 @@ import java.util.List;
 @AllArgsConstructor
 public class ChallengeQuestionRequestDto {
 
-    @NotBlank(message = "Question prompt is required")
-    @Size(max = 500, message = "Question prompt must be less than 500 characters")
+    @NotBlank(message = "{validation.question.prompt.required}")
+    @Size(max = 500, message = "{validation.question.prompt.size}")
     private String prompt;
 
-    @NotNull(message = "Question kind is required")
+    @NotNull(message = "{validation.question.kind.required}")
     private QuestionKind kind;
 
-    @NotNull(message = "Question source is required")
+    @NotNull(message = "{validation.question.source.required}")
     private QuestionSource source;
 
     private Long templateId;
 
-    @Size(max = 10, message = "Maximum 10 choices per question")
+    @Size(max = 10, message = "{validation.question.choices.size}")
     private List<@NotBlank @Size(max = 100) String> choices;
 
-    @Size(max = 500, message = "Correct answer must be less than 500 characters")
+    @Size(max = 500, message = "{validation.question.correctAnswer.size}")
     private String correctAnswer;
 }

@@ -4,6 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 @Data
 public class FcmTokenRequestDTO {
-    @NotBlank(message = "FCM token is required")
+    @NotBlank(message = "{validation.fcmToken.required}")
     private String fcmToken;
 }

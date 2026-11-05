@@ -1,6 +1,6 @@
 package com.example.demo.shared.exception;
-public class InvalidTokenException extends RuntimeException {
-    public InvalidTokenException(String message) {
-        super(message);
+public class InvalidTokenException extends LocalizedException {
+    public InvalidTokenException(String messageKey, Object... arguments) {
+        super(messageKey, arguments);
     }
 }

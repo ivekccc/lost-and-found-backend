@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class GoogleAuthRequestDto {
 
-    @NotBlank(message = "idToken is required")
+    @NotBlank(message = "{validation.idToken.required}")
     private String idToken;
 }

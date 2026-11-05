@@ -24,10 +24,10 @@ public class ClaimEventListener {
         notificationFacade.notify(
                 event.getChallengeAuthorId(),
                 NotificationType.CLAIM_SUBMITTED,
-                "New ownership claim",
-                "Someone answered your verification questions for \"" + event.getReportTitle() + "\". Review their claim.",
-                "{\"reportId\":" + event.getReportId() + ",\"challengeId\":" + event.getChallengeId() + ",\"claimId\":" + event.getClaimId() + "}"
-        );
+                "notification.claimSubmitted.title",
+                "notification.claimSubmitted.body",
+                "{\"reportId\":" + event.getReportId() + ",\"challengeId\":" + event.getChallengeId() + ",\"claimId\":" + event.getClaimId() + "}",
+                event.getReportTitle());
     }
 
     @TransactionalEventListener
@@ -40,18 +40,18 @@ public class ClaimEventListener {
             notificationFacade.notify(
                     event.getClaimantId(),
                     NotificationType.CLAIM_APPROVED,
-                    "Ownership confirmed",
-                    "Your claim for \"" + event.getReportTitle() + "\" was confirmed. Contact details are now available.",
-                    dataJson
-            );
+                    "notification.claimApproved.title",
+                    "notification.claimApproved.body",
+                    dataJson,
+                    event.getReportTitle());
         } else {
             notificationFacade.notify(
                     event.getClaimantId(),
                     NotificationType.CLAIM_DECLINED,
-                    "Claim declined",
-                    "Your claim for \"" + event.getReportTitle() + "\" was declined.",
-                    dataJson
-            );
+                    "notification.claimDeclined.title",
+                    "notification.claimDeclined.body",
+                    dataJson,
+                    event.getReportTitle());
         }
     }
 }

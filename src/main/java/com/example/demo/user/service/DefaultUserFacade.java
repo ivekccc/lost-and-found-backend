@@ -18,14 +18,14 @@ public class DefaultUserFacade implements UserFacade {
     @Transactional(readOnly = true)
     public User requireByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
     }
 
     @Override
     @Transactional(readOnly = true)
     public User requireById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
     }
 
     @Override

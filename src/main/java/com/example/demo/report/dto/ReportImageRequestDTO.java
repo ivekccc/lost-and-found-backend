@@ -10,11 +10,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReportImageRequestDTO {
 
-    @NotBlank(message = "Image URL is required")
+    @NotBlank(message = "{validation.image.url.required}")
     @Size(max = 500)
     private String imageUrl;
 
-    @NotBlank(message = "Public ID is required")
+    @NotBlank(message = "{validation.image.publicId.required}")
     @Size(max = 255)
     private String publicId;
 }

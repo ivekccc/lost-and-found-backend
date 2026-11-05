@@ -1,5 +1,7 @@
 package com.example.demo.report.model;
 
+import java.util.Locale;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,6 +17,9 @@ public class ReportCategory {
     @Column(unique = true, nullable = false, length = 100)
     private String name;
 
+    @Column(name = "name_sr", nullable = false, length = 100)
+    private String nameSr;
+
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
@@ -26,4 +31,8 @@ public class ReportCategory {
 
     @Column(name = "image_public_id", length = 255)
     private String imagePublicId;
+
+    public String localizedName(Locale locale) {
+        return locale != null && "sr".equals(locale.getLanguage()) ? nameSr : name;
+    }
 }

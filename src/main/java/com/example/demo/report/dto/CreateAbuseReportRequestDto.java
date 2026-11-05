@@ -13,15 +13,15 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CreateAbuseReportRequestDto {
 
-    @NotNull(message = "Target type is required")
+    @NotNull(message = "{validation.abuse.targetType.required}")
     private AbuseTargetType targetType;
 
-    @NotNull(message = "Target id is required")
+    @NotNull(message = "{validation.abuse.targetId.required}")
     private Long targetId;
 
-    @NotNull(message = "Reason is required")
+    @NotNull(message = "{validation.abuse.reason.required}")
     private AbuseReason reason;
 
-    @Size(max = 1000, message = "Message must be less than 1000 characters")
+    @Size(max = 1000, message = "{validation.message.size}")
     private String message;
 }

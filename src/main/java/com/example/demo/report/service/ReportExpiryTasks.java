@@ -41,11 +41,10 @@ public class ReportExpiryTasks {
             notificationFacade.notify(
                     report.getUser().getId(),
                     NotificationType.REPORT_EXPIRED,
-                    "Your report expired",
-                    "Your report \"" + report.getTitle() + "\" has expired and is no longer visible "
-                            + "to others. Reopen it if you are still looking, or mark it reunited "
-                            + "if the item is back.",
-                    "{\"reportId\":" + report.getId() + "}");
+                    "notification.reportExpired.title",
+                    "notification.reportExpired.body",
+                    "{\"reportId\":" + report.getId() + "}",
+                    report.getTitle());
         }
     }
 }

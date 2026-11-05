@@ -33,7 +33,7 @@ public class AdminUserService {
 
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
         if (user.getStatus() != UserStatus.DELETED) {
             accountDeletionService.deleteAccount(user);
         }
@@ -52,8 +52,8 @@ public class AdminUserService {
         refreshTokenService.revokeAllForUser(user.getId());
 
         notificationFacade.notify(user.getId(), NotificationType.ACCOUNT_BLOCKED,
-                "Account blocked",
-                "Your account has been blocked for violating the community rules.", "{}");
+                "notification.accountBlocked.title",
+                "notification.accountBlocked.body", "{}");
     }
 
     @Transactional
@@ -65,8 +65,8 @@ public class AdminUserService {
         reportFacade.resolveAbuseReportsForUser(user.getId(), adminEmail);
 
         notificationFacade.notify(user.getId(), NotificationType.ACCOUNT_PARTIALLY_BLOCKED,
-                "Account restricted",
-                "Your account is restricted: you can no longer post found items or send verification questions.", "{}");
+                "notification.accountRestricted.title",
+                "notification.accountRestricted.body", "{}");
     }
 
     /**
@@ -77,10 +77,10 @@ public class AdminUserService {
     @Transactional
     public void unblockUser(Long id, String adminEmail) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
 
         if (user.getStatus() != UserStatus.BLOCKED && user.getStatus() != UserStatus.PARTIALLY_BLOCKED) {
-            throw new IllegalArgumentException("Only blocked accounts can be unblocked");
+            throw new IllegalArgumentException("admin.user.notBlocked");
         }
 
         user.setStatus(UserStatus.ACTIVE);
@@ -91,9 +91,9 @@ public class AdminUserService {
 
     private User requireNonAdmin(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
         if (user.getRole() == UserRole.ADMIN) {
-            throw new InvalidAbuseReportException("Administrators cannot be blocked");
+            throw new InvalidAbuseReportException("admin.user.cannotBlockAdmin");
         }
         return user;
     }
@@ -114,7 +114,7 @@ public class AdminUserService {
 
     public UserDetailsDTO getUserById(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
         return mapToDetailsDTO(user);
     }
 

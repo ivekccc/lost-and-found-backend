@@ -26,10 +26,15 @@ public class AdminQuestionTemplateDto {
     @NotBlank
     private String prompt;
 
+    @NotBlank
+    private String promptSr;
+
     @NotNull
     private QuestionKind kind;
 
     private List<String> defaultChoices;
+
+    private List<String> defaultChoicesSr;
 
     @NotNull
     private Boolean isActive;

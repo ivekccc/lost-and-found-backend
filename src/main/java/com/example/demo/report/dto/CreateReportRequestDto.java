@@ -20,35 +20,35 @@ import java.util.List;
 @AllArgsConstructor
 @Schema(name = "CreateReportRequest", description = "Request body for creating a new report")
 public class CreateReportRequestDto {
-    @NotBlank(message = "Title is required")
-    @Size(max = 255, message = "Title must be less than 255 characters")
+    @NotBlank(message = "{validation.report.title.required}")
+    @Size(max = 255, message = "{validation.report.title.size}")
     private String title;
 
-    @Size(max = 2000, message = "Description must be less than 2000 characters")
+    @Size(max = 2000, message = "{validation.report.description.size}")
     private String description;
 
-    @NotNull(message = "Type is required")
+    @NotNull(message = "{validation.report.type.required}")
     private ReportType type;
 
-    @NotNull(message = "Category is required")
+    @NotNull(message = "{validation.category.required}")
     private Long categoryId;
 
     @Valid
-    @NotNull(message = "Location is required")
+    @NotNull(message = "{validation.report.location.required}")
     private LocationRequestDTO location;
 
-    @Email(message = "Invalid email format")
+    @Email(message = "{validation.email.invalid}")
     @Size(max = 255)
     private String contactEmail;
 
-    @Size(max = 50, message = "Phone must be less than 50 characters")
+    @Size(max = 50, message = "{validation.report.phone.size}")
     private String contactPhone;
 
     @Valid
-    @Size(max = 5, message = "Maximum 5 images per report")
+    @Size(max = 5, message = "{validation.report.images.size}")
     private List<ReportImageRequestDTO> images;
 
     @Valid
-    @Size(max = 10, message = "Maximum 10 verification questions per report")
+    @Size(max = 10, message = "{validation.report.questions.size}")
     private List<ChallengeQuestionRequestDto> questions;
 }

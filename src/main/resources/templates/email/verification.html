@@ -14,16 +14,16 @@
                             <div style="margin-bottom: 10px;">
                                 <span style="color: #FFF8F1; font-size: 24px;">&#9993;</span>
                             </div>
-                            <p style="color: #FFF8F1; margin: 0 0 5px 0; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;">Thanks for signing up!</p>
-                            <h1 style="color: #FFF8F1; margin: 0; font-size: 22px; font-weight: 600;">Verify Your E-Mail Address</h1>
+                            <p style="color: #FFF8F1; margin: 0 0 5px 0; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;" th:text="#{email.verification.kicker}"></p>
+                            <h1 style="color: #FFF8F1; margin: 0; font-size: 22px; font-weight: 600;" th:text="#{email.verification.heading}"></h1>
                         </td>
                     </tr>
                     <!-- Content -->
                     <tr>
                         <td style="padding: 30px;">
-                            <p style="color: #1F1A17; font-size: 14px; margin: 0 0 20px 0;">Hello,</p>
+                            <p style="color: #1F1A17; font-size: 14px; margin: 0 0 20px 0;" th:text="#{email.greeting}"></p>
 
-                            <p style="color: #4A4038; font-size: 14px; margin: 0 0 25px 0;">Please use the following verification code</p>
+                            <p style="color: #4A4038; font-size: 14px; margin: 0 0 25px 0;" th:text="#{email.verification.instruction}"></p>
                             <!-- OTP Code with boxes -->
                             <table role="presentation" style="margin: 0 auto 25px auto; border-collapse: separate; border-spacing: 8px 0;">
                                 <tr>
@@ -32,9 +32,7 @@
                                     </th:block>
                                 </tr>
                             </table>
-                            <p style="color: #7A6F64; font-size: 13px; margin: 0 0 25px 0;">
-                                This passcode will only be valid for the next <strong>15 minutes</strong>. If it expires, register again to get a new one.
-                            </p>
+                            <p style="color: #7A6F64; font-size: 13px; margin: 0 0 25px 0;" th:utext="#{email.verification.validity}"></p>
                         </td>
                     </tr>
                 </table>

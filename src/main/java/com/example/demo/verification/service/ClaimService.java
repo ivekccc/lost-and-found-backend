@@ -59,11 +59,11 @@ public class ClaimService {
         Report report = challenge.getReport();
 
         if (report.getType() == ReportType.LOST && !isOwnerOrAuthor(report, challenge, user)) {
-            throw new InvalidClaimException("Only the report owner can answer this challenge");
+            throw new InvalidClaimException("claim.onlyOwnerCanAnswer");
         }
   
         if (report.getStatus() != ReportStatus.ACTIVE) {
-            throw new ResourceNotFoundException("Challenge not found");
+            throw new ResourceNotFoundException("challenge.notFound");
         }
 
         List<ClaimantChallengeQuestionDto> questions = challenge.getQuestions().stream()
@@ -114,32 +114,32 @@ public class ClaimService {
 
     private void validateClaimant(Challenge challenge, Report report, User claimant) {
         if (challenge.getAuthor().getId().equals(claimant.getId())) {
-            throw new InvalidClaimException("You cannot claim your own challenge");
+            throw new InvalidClaimException("claim.cannotClaimOwn");
         }
         if (report.getStatus() != ReportStatus.ACTIVE) {
-            throw new InvalidClaimException("This report is no longer active");
+            throw new InvalidClaimException("report.noLongerActive");
         }
         if (report.getType() == ReportType.LOST && !report.getUser().getId().equals(claimant.getId())) {
-            throw new InvalidClaimException("Only the report owner can answer this challenge");
+            throw new InvalidClaimException("claim.onlyOwnerCanAnswer");
         }
     }
 
     private void validateLimits(Long challengeId, Long claimantId) {
         if (claimRepository.existsByChallengeIdAndClaimantIdAndStatus(challengeId, claimantId, ClaimStatus.PENDING)) {
-            throw new InvalidClaimException("You already have a pending claim for this challenge");
+            throw new InvalidClaimException("claim.alreadyPending");
         }
         // An approved claim used to be blocked only indirectly, through "the listing must be ACTIVE".
         // That guard falls away the moment moderation or expiry moves the listing elsewhere.
         if (claimRepository.existsByChallengeIdAndClaimantIdAndStatus(challengeId, claimantId, ClaimStatus.APPROVED)) {
-            throw new InvalidClaimException("Your ownership of this item has already been confirmed");
+            throw new InvalidClaimException("claim.alreadyApproved");
         }
         if (claimRepository.countByChallengeIdAndClaimantId(challengeId, claimantId) >= MAX_ATTEMPTS_PER_CHALLENGE) {
-            throw new InvalidClaimException("You have used all attempts for this challenge");
+            throw new InvalidClaimException("claim.noAttemptsLeft");
         }
         long dailyCount = claimRepository.countByClaimantIdSince(claimantId, LocalDateTime.now().minusDays(1));
         if (dailyCount >= MAX_CLAIMS_PER_DAY) {
             throw new RateLimitExceededException(
-                    "Daily claim limit reached. Try again tomorrow.", DAY_IN_SECONDS);
+                    "claim.dailyLimit", DAY_IN_SECONDS);
         }
     }
 
@@ -150,14 +150,14 @@ public class ClaimService {
         Map<Long, ClaimAnswerRequestDto> answersByQuestionId = new HashMap<>();
         for (ClaimAnswerRequestDto answer : answers) {
             if (!questionsById.containsKey(answer.getQuestionId())) {
-                throw new InvalidClaimException("Question " + answer.getQuestionId() + " does not belong to this challenge");
+                throw new InvalidClaimException("claim.questionNotInChallenge");
             }
             if (answersByQuestionId.put(answer.getQuestionId(), answer) != null) {
-                throw new InvalidClaimException("Duplicate answer for question " + answer.getQuestionId());
+                throw new InvalidClaimException("claim.duplicateAnswer");
             }
         }
         if (answersByQuestionId.size() != questionsById.size()) {
-            throw new InvalidClaimException("All challenge questions must be answered");
+            throw new InvalidClaimException("claim.allQuestionsRequired");
         }
 
         for (ChallengeQuestion question : challenge.getQuestions()) {
@@ -170,7 +170,7 @@ public class ClaimService {
 
             if (question.getKind() == QuestionKind.CHOICE) {
                 if (question.getChoices() == null || !question.getChoices().contains(answerRequest.getAnswerText())) {
-                    throw new InvalidClaimException("Answer to question " + question.getId() + " must be one of the offered choices");
+                    throw new InvalidClaimException("claim.answerNotAChoice");
                 }
                 answer.setIsCorrect(answerRequest.getAnswerText().equals(question.getCorrectAnswer()));
             }
@@ -222,7 +222,7 @@ public class ClaimService {
         // Without this check, approving a stale claim overwrites ANY listing status with MATCHED,
         // including FLAGGED — an ordinary user undoing a moderation decision.
         if (report.getStatus() != ReportStatus.ACTIVE) {
-            throw new InvalidClaimException("This report is no longer active");
+            throw new InvalidClaimException("report.noLongerActive");
         }
 
         claim.setStatus(ClaimStatus.APPROVED);
@@ -295,7 +295,7 @@ public class ClaimService {
         Claim claim = findClaim(claimId);
 
         if (!claim.getClaimant().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Claim with id " + claimId + " not found");
+            throw new ResourceNotFoundException("claim.notFound");
         }
         requirePending(claim);
 
@@ -329,13 +329,13 @@ public class ClaimService {
 
     private void requireChallengeAuthor(Challenge challenge, User user) {
         if (!challenge.getAuthor().getId().equals(user.getId())) {
-            throw new InvalidClaimException("Only the challenge author can review claims");
+            throw new InvalidClaimException("claim.onlyAuthorCanReview");
         }
     }
 
     private void requirePending(Claim claim) {
         if (claim.getStatus() != ClaimStatus.PENDING) {
-            throw new InvalidClaimException("This claim has already been decided");
+            throw new InvalidClaimException("claim.alreadyDecided");
         }
     }
 
@@ -345,14 +345,14 @@ public class ClaimService {
      */
     private Report lockReportOfClaim(Long claimId) {
         Long reportId = claimRepository.findReportIdByClaimId(claimId)
-                .orElseThrow(() -> new ResourceNotFoundException("Claim with id " + claimId + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("claim.notFound"));
 
         return reportFacade.lockById(reportId);
     }
 
     private Claim findClaim(Long claimId) {
         return claimRepository.findById(claimId)
-                .orElseThrow(() -> new ResourceNotFoundException("Claim with id " + claimId + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("claim.notFound"));
     }
 
     private ClaimSummaryDto toSummaryDto(Claim claim) {
@@ -466,7 +466,7 @@ public class ClaimService {
     private Challenge findChallenge(Long challengeId) {
         return challengeRepository.findById(challengeId)
                 .filter(challenge -> challenge.getReport().getStatus() != ReportStatus.DELETED)
-                .orElseThrow(() -> new ResourceNotFoundException("Challenge with id " + challengeId + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("challenge.notFound"));
     }
 
     private boolean isOwnerOrAuthor(Report report, Challenge challenge, User user) {

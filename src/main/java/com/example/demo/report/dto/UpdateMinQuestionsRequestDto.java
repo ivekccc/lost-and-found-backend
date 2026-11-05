@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateMinQuestionsRequestDto {
 
-    @NotNull(message = "Minimum questions is required")
-    @Min(value = 1, message = "Minimum questions must be at least 1")
-    @Max(value = 10, message = "Minimum questions must be at most 10")
+    @NotNull(message = "{validation.category.minQuestions.required}")
+    @Min(value = 1, message = "{validation.category.minQuestions.min}")
+    @Max(value = 10, message = "{validation.category.minQuestions.max}")
     private Integer minQuestions;
 }

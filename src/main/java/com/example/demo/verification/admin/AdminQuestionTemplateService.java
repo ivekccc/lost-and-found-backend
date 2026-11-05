@@ -1,5 +1,7 @@
 package com.example.demo.verification.admin;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
 import com.example.demo.report.model.ReportCategory;
 import com.example.demo.report.ReportFacade;
 import com.example.demo.shared.exception.InvalidChallengeException;
@@ -35,12 +37,15 @@ public class AdminQuestionTemplateService {
         ReportCategory category = reportFacade.requireCategoryById(request.getCategoryId());
 
         validateChoices(request.getKind(), request.getDefaultChoices());
+        validateChoices(request.getKind(), request.getDefaultChoicesSr());
 
         QuestionTemplate template = new QuestionTemplate();
         template.setCategory(category);
         template.setPrompt(request.getPrompt());
+        template.setPromptSr(request.getPromptSr());
         template.setKind(request.getKind());
         template.setDefaultChoices(request.getDefaultChoices());
+        template.setDefaultChoicesSr(request.getDefaultChoicesSr());
 
         return toDto(questionTemplateRepository.save(template));
     }
@@ -50,10 +55,13 @@ public class AdminQuestionTemplateService {
         QuestionTemplate template = findTemplate(id);
 
         validateChoices(request.getKind(), request.getDefaultChoices());
+        validateChoices(request.getKind(), request.getDefaultChoicesSr());
 
         template.setPrompt(request.getPrompt());
+        template.setPromptSr(request.getPromptSr());
         template.setKind(request.getKind());
         template.setDefaultChoices(request.getDefaultChoices());
+        template.setDefaultChoicesSr(request.getDefaultChoicesSr());
         template.setIsActive(request.getIsActive());
 
         return toDto(questionTemplateRepository.save(template));
@@ -68,23 +76,25 @@ public class AdminQuestionTemplateService {
 
     private void validateChoices(QuestionKind kind, List<String> choices) {
         if (kind == QuestionKind.CHOICE && (choices == null || choices.size() < 2)) {
-            throw new InvalidChallengeException("Choice templates require at least 2 default choices");
+            throw new InvalidChallengeException("template.choiceNeedsTwoChoices");
         }
     }
 
     private QuestionTemplate findTemplate(Long id) {
         return questionTemplateRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Question template with id " + id + " not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("template.notFound"));
     }
 
     private AdminQuestionTemplateDto toDto(QuestionTemplate template) {
         return new AdminQuestionTemplateDto(
                 template.getId(),
                 template.getCategory().getId(),
-                template.getCategory().getName(),
+                template.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 template.getPrompt(),
+                template.getPromptSr(),
                 template.getKind(),
                 template.getDefaultChoices(),
+                template.getDefaultChoicesSr(),
                 template.getIsActive(),
                 template.getCreatedAt()
         );

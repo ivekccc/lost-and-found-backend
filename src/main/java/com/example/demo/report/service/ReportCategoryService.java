@@ -1,5 +1,7 @@
 package com.example.demo.report.service;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
 import com.example.demo.report.dto.ReportCategoryDto;
 import com.example.demo.report.repository.ReportCategoryRepository;
 
@@ -15,7 +17,7 @@ public class ReportCategoryService {
     public List<ReportCategoryDto> getAllActiveCategories(){
         return reportCategoryRepository.findByIsActiveTrue().stream().map(reportCategory -> new ReportCategoryDto(
                 reportCategory.getId(),
-                reportCategory.getName(),
+                reportCategory.localizedName(LocaleContextHolder.getLocale()),
                 reportCategory.getMinQuestions(),
                 reportCategory.getImageUrl()
         )).collect(Collectors.toList());

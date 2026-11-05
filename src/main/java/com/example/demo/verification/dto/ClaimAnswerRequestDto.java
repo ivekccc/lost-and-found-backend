@@ -11,10 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ClaimAnswerRequestDto {
 
-    @NotNull(message = "Question id is required")
+    @NotNull(message = "{validation.answer.questionId.required}")
     private Long questionId;
 
-    @NotBlank(message = "Answer is required")
-    @Size(max = 1000, message = "Answer must be less than 1000 characters")
+    @NotBlank(message = "{validation.answer.text.required}")
+    @Size(max = 1000, message = "{validation.answer.text.size}")
     private String answerText;
 }

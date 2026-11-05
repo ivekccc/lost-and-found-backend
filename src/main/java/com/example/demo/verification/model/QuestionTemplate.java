@@ -9,6 +9,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 @Entity
 @Table(name = "question_templates")
 @Getter
@@ -26,6 +27,9 @@ public class QuestionTemplate {
     @Column(nullable = false, length = 500)
     private String prompt;
 
+    @Column(name = "prompt_sr", nullable = false, length = 500)
+    private String promptSr;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private QuestionKind kind;
@@ -33,6 +37,10 @@ public class QuestionTemplate {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "default_choices", columnDefinition = "jsonb")
     private List<String> defaultChoices;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "default_choices_sr", columnDefinition = "jsonb")
+    private List<String> defaultChoicesSr;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
@@ -43,5 +51,17 @@ public class QuestionTemplate {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+
+    public String localizedPrompt(Locale locale) {
+        return isSerbian(locale) ? promptSr : prompt;
+    }
+
+    public List<String> localizedDefaultChoices(Locale locale) {
+        return isSerbian(locale) ? defaultChoicesSr : defaultChoices;
+    }
+
+    private static boolean isSerbian(Locale locale) {
+        return locale != null && "sr".equals(locale.getLanguage());
     }
 }

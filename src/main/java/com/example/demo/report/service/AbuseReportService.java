@@ -42,7 +42,7 @@ public class AbuseReportService {
                 reporter.getId(), LocalDateTime.now().minusDays(1));
         if (dailyCount >= MAX_REPORTS_PER_DAY) {
             throw new RateLimitExceededException(
-                    "Daily report limit reached. Try again tomorrow.", DAY_IN_SECONDS);
+                    "abuse.dailyLimit", DAY_IN_SECONDS);
         }
 
         AbuseReport report = new AbuseReport();
@@ -54,23 +54,23 @@ public class AbuseReportService {
         if (request.getTargetType() == AbuseTargetType.USER) {
             User targetUser = userFacade.requireById(request.getTargetId());
             if (targetUser.getId().equals(reporter.getId())) {
-                throw new InvalidAbuseReportException("You cannot report yourself");
+                throw new InvalidAbuseReportException("abuse.cannotReportSelf");
             }
             if (abuseReportRepository.existsByReporterIdAndTargetUserIdAndStatus(
                     reporter.getId(), targetUser.getId(), AbuseReportStatus.PENDING)) {
-                throw new InvalidAbuseReportException("You already have an open report for this user");
+                throw new InvalidAbuseReportException("abuse.alreadyOpenForUser");
             }
             report.setTargetUser(targetUser);
         } else {
             Report targetReport = reportRepository.findById(request.getTargetId())
                     .filter(r -> r.getStatus() != ReportStatus.DELETED)
-                    .orElseThrow(() -> new ResourceNotFoundException("Reported listing not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("abuse.listingNotFound"));
             if (targetReport.getUser().getId().equals(reporter.getId())) {
-                throw new InvalidAbuseReportException("You cannot report your own listing");
+                throw new InvalidAbuseReportException("abuse.cannotReportOwnListing");
             }
             if (abuseReportRepository.existsByReporterIdAndTargetReportIdAndStatus(
                     reporter.getId(), targetReport.getId(), AbuseReportStatus.PENDING)) {
-                throw new InvalidAbuseReportException("You already have an open report for this listing");
+                throw new InvalidAbuseReportException("abuse.alreadyOpenForListing");
             }
             report.setTargetReport(targetReport);
         }
@@ -90,7 +90,7 @@ public class AbuseReportService {
     public void dismiss(Long id, String adminEmail) {
         User admin = userFacade.requireByEmail(adminEmail);
         AbuseReport report = abuseReportRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Abuse report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("abuse.notFound"));
         if (report.getStatus() == AbuseReportStatus.PENDING) {
             markResolved(report, admin, AbuseReportStatus.DISMISSED);
             abuseReportRepository.save(report);

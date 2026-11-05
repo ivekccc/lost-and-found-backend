@@ -1,5 +1,9 @@
 package com.example.demo.shared.exception;
 
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.NoSuchMessageException;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,25 +14,26 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
 @ControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final MessageSource messageSource;
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponseDTO> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponseDTO("Invalid email or password", HttpStatus.UNAUTHORIZED.value()));
+        return respond(HttpStatus.UNAUTHORIZED, localize("auth.badCredentials"));
     }
 
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ErrorResponseDTO> handleDisabled(DisabledException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(new ErrorResponseDTO("This account is no longer active", HttpStatus.FORBIDDEN.value()));
+        return respond(HttpStatus.FORBIDDEN, localize("auth.accountInactive"));
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<ErrorResponseDTO> handleUserAlreadyExists(UserAlreadyExistsException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.CONFLICT.value()));
+        return respond(HttpStatus.CONFLICT, localize(ex));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -36,87 +41,95 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
             .findFirst()
             .map(error -> error.getDefaultMessage())
-            .orElse("Validation failed");
+            .orElseGet(() -> localize("error.validationFailed"));
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponseDTO(message, HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, message);
     }
+
     @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
     public ResponseEntity<ErrorResponseDTO> handleBadRequestParams(Exception ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponseDTO("Invalid or missing request parameter", HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, localize("error.invalidParameter"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDTO> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, localize(ex.getMessage()));
     }
 
     @ExceptionHandler(InvalidVerificationException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidVerification(InvalidVerificationException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponseDTO(ex.getMessage(),
-    HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, localize(ex));
     }
 
     @ExceptionHandler(EmailSendException.class)
     public ResponseEntity<ErrorResponseDTO> handleEmailSendException(EmailSendException ex) {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.SERVICE_UNAVAILABLE.value()));
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, localize(ex));
     }
 
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidToken(InvalidTokenException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.UNAUTHORIZED.value()));
+        return respond(HttpStatus.UNAUTHORIZED, localize(ex));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleOtherExceptions(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(new ErrorResponseDTO("An unexpected error occurred", HttpStatus.INTERNAL_SERVER_ERROR.value()));
+        return respond(HttpStatus.INTERNAL_SERVER_ERROR, localize("error.unexpected"));
     }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleResourceNotFound(ResourceNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.NOT_FOUND.value()));
+        return respond(HttpStatus.NOT_FOUND, localize(ex));
     }
 
     @ExceptionHandler(LocationOutsideSupportedCitiesException.class)
     public ResponseEntity<ErrorResponseDTO> handleLocationOutsideSupportedCities(
             LocationOutsideSupportedCitiesException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.CONFLICT.value()));
+        return respond(HttpStatus.CONFLICT, localize(ex));
     }
 
     @ExceptionHandler(InvalidClaimException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidClaim(InvalidClaimException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, localize(ex));
     }
 
     @ExceptionHandler(InvalidChallengeException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidChallenge(InvalidChallengeException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, localize(ex));
     }
 
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<ErrorResponseDTO> handleRateLimitExceeded(RateLimitExceededException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.TOO_MANY_REQUESTS.value()));
+                .body(new ErrorResponseDTO(localize(ex), HttpStatus.TOO_MANY_REQUESTS.value()));
     }
 
     @ExceptionHandler(InvalidAbuseReportException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidAbuseReport(InvalidAbuseReportException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+        return respond(HttpStatus.BAD_REQUEST, localize(ex));
     }
 
     @ExceptionHandler(AccountRestrictedException.class)
     public ResponseEntity<ErrorResponseDTO> handleAccountRestricted(AccountRestrictedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(new ErrorResponseDTO(ex.getMessage(), HttpStatus.FORBIDDEN.value()));
+        return respond(HttpStatus.FORBIDDEN, localize(ex));
+    }
+
+    private ResponseEntity<ErrorResponseDTO> respond(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(new ErrorResponseDTO(message, status.value()));
+    }
+
+    private String localize(LocalizedException ex) {
+        return localize(ex.getMessage(), ex.getArguments());
+    }
+
+    private String localize(String key, Object... arguments) {
+        if (key == null) {
+            return localize("error.unexpected");
+        }
+        try {
+            return messageSource.getMessage(key, arguments, LocaleContextHolder.getLocale());
+        } catch (NoSuchMessageException e) {
+            return key;
+        }
     }
 }

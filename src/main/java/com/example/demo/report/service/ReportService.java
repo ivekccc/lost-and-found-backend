@@ -1,5 +1,7 @@
 package com.example.demo.report.service;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
 import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.location.dto.ReportZoneDto;
 import com.example.demo.location.model.City;
@@ -102,10 +104,10 @@ public class ReportService {
         User user = userFacade.requireByEmail(userEmail);
 
         if (createReportRequestDto.getType() == ReportType.FOUND && user.getStatus() == UserStatus.PARTIALLY_BLOCKED) {
-            throw new AccountRestrictedException("Your account is restricted and cannot post found items");
+            throw new AccountRestrictedException("report.restrictedCannotPostFound");
         }
 
-        ReportCategory reportCategory = reportCategoryRepository.findById(createReportRequestDto.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        ReportCategory reportCategory = reportCategoryRepository.findById(createReportRequestDto.getCategoryId()).orElseThrow(() -> new ResourceNotFoundException("category.notFound"));
 
         Report report = new Report();
         report.setTitle(createReportRequestDto.getTitle());
@@ -126,7 +128,7 @@ public class ReportService {
                 && createReportRequestDto.getQuestions() != null
                 && !createReportRequestDto.getQuestions().isEmpty()) {
             throw new InvalidChallengeException(
-                    "Lost reports cannot have verification questions — finders create them via a challenge");
+                    "report.lostCannotHaveQuestions");
         }
 
         Report saved = reportRepository.save(report);
@@ -144,10 +146,10 @@ public class ReportService {
                     continue;
                 }
                 if (!cloudinaryService.isOwnedBy(imgDto.getPublicId(), user.getId())) {
-                    throw new IllegalArgumentException("Image was not uploaded by you");
+                    throw new IllegalArgumentException("report.imageNotYours");
                 }
                 if (reportImageRepository.existsByPublicId(imgDto.getPublicId())) {
-                    throw new IllegalArgumentException("Image is already attached to another report");
+                    throw new IllegalArgumentException("report.imageAlreadyAttached");
                 }
             }
 
@@ -186,7 +188,7 @@ public class ReportService {
                 && report.getStatus() != ReportStatus.RESOLVED
                 && report.getStatus() != ReportStatus.EXPIRED) {
             throw new IllegalArgumentException(
-                    "Only a closed, reunited or expired report can be reopened");
+                    "report.cannotReopen");
         }
 
         report.setStatus(ReportStatus.ACTIVE);
@@ -220,7 +222,7 @@ public class ReportService {
                 && report.getStatus() != ReportStatus.MATCHED
                 && report.getStatus() != ReportStatus.EXPIRED) {
             throw new IllegalArgumentException(
-                    "Only an active, closed or expired report can be marked reunited");
+                    "report.cannotResolve");
         }
 
         report.setStatus(ReportStatus.RESOLVED);
@@ -243,9 +245,10 @@ public class ReportService {
             notificationFacade.notify(
                     claim.getClaimant().getId(),
                     NotificationType.REPORT_RESOLVED,
-                    "Reunited",
-                    "\"" + report.getTitle() + "\" was marked as reunited with its owner. Thanks for your help.",
-                    "{\"reportId\":" + report.getId() + "}");
+                    "notification.reportResolved.title",
+                    "notification.reportResolved.body",
+                    "{\"reportId\":" + report.getId() + "}",
+                    report.getTitle());
         }
     }
 
@@ -260,7 +263,7 @@ public class ReportService {
         Report report = ownedReport(id, user);
 
         if (report.getStatus() != ReportStatus.ACTIVE) {
-            throw new IllegalArgumentException("Only an active report can be closed");
+            throw new IllegalArgumentException("report.cannotClose");
         }
 
         report.setStatus(ReportStatus.CLOSED);
@@ -287,7 +290,7 @@ public class ReportService {
         Report report = ownedReport(id, user);
 
         if (report.getStatus() == ReportStatus.DELETED) {
-            throw new IllegalArgumentException("Report is already deleted");
+            throw new IllegalArgumentException("report.alreadyDeleted");
         }
 
         report.setStatus(ReportStatus.DELETED);
@@ -306,7 +309,7 @@ public class ReportService {
         // approveClaim and declineClaim, which decide on the same resource.
         return reportRepository.findByIdForUpdate(id)
                 .filter(report -> report.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
     }
 
 
@@ -352,7 +355,7 @@ public class ReportService {
         // Coordinates are validated, not just clamped: NaN parses fine in Spring, reaches PostGIS,
         // and turns the radius filter false for everything — an empty list with no explanation.
         if (!isValidCoordinate(latitude, -90, 90) || !isValidCoordinate(longitude, -180, 180)) {
-            throw new IllegalArgumentException("Latitude must be between -90 and 90, longitude between -180 and 180");
+            throw new IllegalArgumentException("location.coordinatesOutOfRange");
         }
 
         double effectiveRadiusKm = Math.min(Math.max(radiusKm, 0), NEARBY_MAX_RADIUS_KM);
@@ -434,7 +437,7 @@ public class ReportService {
                 report.getId(),
                 report.getTitle(),
                 report.getType(),
-                report.getCategory().getName(),
+                report.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
                 locationFor(report, viewer, false),
@@ -473,10 +476,10 @@ public class ReportService {
     public void saveReport(Long reportId, String userEmail) {
         User user = userFacade.requireByEmail(userEmail);
         Report report = findVisibleReport(reportId, user)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
 
         if (report.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Your own reports are already in My Reports");
+            throw new IllegalArgumentException("report.cannotSaveOwn");
         }
         if (savedReportRepository.existsByUserIdAndReportId(user.getId(), reportId)) {
             return;
@@ -553,13 +556,12 @@ public class ReportService {
         Zone zone = location.getZone();
         if (zone == null) {
             throw new IllegalArgumentException(
-                    "This address is outside the area the app covers");
+                    "report.addressOutsideCoverage");
         }
         City activeCity = user.getActiveCity();
         if (!zone.getCityId().equals(activeCity.getId())) {
             throw new IllegalArgumentException(
-                    "This address is not in " + activeCity.getName()
-                            + ". Switch city first, or pick an address in " + activeCity.getName() + ".");
+                    "report.addressNotInActiveCity");
         }
     }
 
@@ -589,7 +591,7 @@ public class ReportService {
                 report.getId(),
                 report.getTitle(),
                 report.getType(),
-                report.getCategory().getName(),
+                report.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
                 locationFor(report, viewer, false),
@@ -636,7 +638,7 @@ public class ReportService {
                 report.getDescription(),
                 report.getType(),
                 report.getCategory().getId(),
-                report.getCategory().getName(),
+                report.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
                 locationFor(report, viewer, revealedByVerification),

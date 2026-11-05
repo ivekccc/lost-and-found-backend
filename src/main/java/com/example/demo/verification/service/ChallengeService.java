@@ -47,10 +47,10 @@ public class ChallengeService {
         Report report = reportFacade.requireVisibleById(reportId);
 
         if (report.getType() != ReportType.LOST) {
-            throw new InvalidChallengeException("Only lost reports receive challenges from finders");
+            throw new InvalidChallengeException("challenge.onlyLostReceive");
         }
         if (!report.getUser().getId().equals(owner.getId())) {
-            throw new InvalidChallengeException("Only the report owner can view received challenges");
+            throw new InvalidChallengeException("challenge.onlyOwnerCanView");
         }
 
         return challengeRepository.findByReportIdOrderByCreatedAtAsc(reportId).stream()
@@ -89,17 +89,17 @@ public class ChallengeService {
 
         if (author.getStatus() == UserStatus.PARTIALLY_BLOCKED) {
             throw new AccountRestrictedException(
-                    "Your account is restricted and cannot send verification questions");
+                    "challenge.restrictedCannotSend");
         }
         if (report.getType() != ReportType.LOST) {
             throw new InvalidChallengeException(
-                    "Challenges can only be created on lost reports — found reports get theirs at creation");
+                    "challenge.onlyOnLost");
         }
         if (report.getStatus() != ReportStatus.ACTIVE) {
-            throw new InvalidChallengeException("This report is no longer active");
+            throw new InvalidChallengeException("report.noLongerActive");
         }
         if (report.getUser().getId().equals(author.getId())) {
-            throw new InvalidChallengeException("You cannot create a challenge on your own report");
+            throw new InvalidChallengeException("challenge.cannotOnOwn");
         }
 
         Challenge challenge = createChallenge(report, author, request.getQuestions());
@@ -115,11 +115,11 @@ public class ChallengeService {
         int minQuestions = report.getCategory().getMinQuestions();
         if (questions == null || questions.size() < minQuestions) {
             throw new InvalidChallengeException(
-                    "At least " + minQuestions + " verification questions are required for this category");
+                    "challenge.minQuestions", minQuestions);
         }
 
         if (challengeRepository.findByReportIdAndAuthorId(report.getId(), author.getId()).isPresent()) {
-            throw new InvalidChallengeException("You already created a challenge for this report");
+            throw new InvalidChallengeException("challenge.alreadyCreated");
         }
 
         Challenge challenge = new Challenge();
@@ -136,13 +136,13 @@ public class ChallengeService {
     private ChallengeQuestion buildQuestion(Challenge challenge, ChallengeQuestionRequestDto dto, int orderIndex, Long categoryId) {
         if (dto.getKind() == QuestionKind.CHOICE) {
             if (dto.getChoices() == null || dto.getChoices().size() < 2) {
-                throw new InvalidChallengeException("Choice questions require at least 2 choices");
+                throw new InvalidChallengeException("challenge.choiceNeedsTwoChoices");
             }
             if (dto.getCorrectAnswer() == null || dto.getCorrectAnswer().isBlank()) {
-                throw new InvalidChallengeException("Choice questions require a correct answer");
+                throw new InvalidChallengeException("challenge.choiceNeedsCorrectAnswer");
             }
             if (!dto.getChoices().contains(dto.getCorrectAnswer())) {
-                throw new InvalidChallengeException("Correct answer must be one of the choices");
+                throw new InvalidChallengeException("challenge.correctAnswerNotAChoice");
             }
         }
 
@@ -157,12 +157,12 @@ public class ChallengeService {
 
         if (dto.getSource() == QuestionSource.TEMPLATE) {
             if (dto.getTemplateId() == null) {
-                throw new InvalidChallengeException("Template questions require a template id");
+                throw new InvalidChallengeException("challenge.templateIdRequired");
             }
             QuestionTemplate template = questionTemplateRepository.findById(dto.getTemplateId())
-                    .orElseThrow(() -> new InvalidChallengeException("Question template not found"));
+                    .orElseThrow(() -> new InvalidChallengeException("template.notFound"));
             if (!template.getCategory().getId().equals(categoryId)) {
-                throw new InvalidChallengeException("Question template does not belong to the report category");
+                throw new InvalidChallengeException("challenge.templateWrongCategory");
             }
             question.setTemplate(template);
         }

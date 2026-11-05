@@ -1,5 +1,7 @@
 package com.example.demo.user.dto;
 
+import com.example.demo.user.model.AppLanguage;
+
 import com.example.demo.location.dto.CityDto;
 import com.example.demo.location.model.City;
 
@@ -48,4 +50,9 @@ public class UserProfileDTO {
             + "address lookup; does NOT scope the user's own reports, claims or notifications, so "
             + "switching cities never hides your own listing or a claim awaiting your decision.")
     private CityDto activeCity;
+
+    @NotNull
+    @Schema(description = "Language the user chose in the app. Push notifications, inbox entries and "
+            + "emails are written in it, since those are sent without a request to take a language from.")
+    private AppLanguage language;
 }

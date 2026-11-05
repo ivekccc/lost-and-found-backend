@@ -41,7 +41,7 @@ public class AccountDeletionService {
     @Transactional
     public void deleteOwnAccount(String userEmail, DeleteAccountRequestDto request) {
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
 
         verifyIdentity(user, request);
         deleteAccount(user);

@@ -10,7 +10,7 @@ import com.example.demo.notification.model.NotificationType;
  */
 public interface NotificationFacade {
 
-    void notify(Long userId, NotificationType type, String title, String body, String dataJson);
+    void notify(Long userId, NotificationType type, String titleKey, String bodyKey, String dataJson, Object... arguments);
 
     void sendVerificationEmail(String email, String code);
 

@@ -1,5 +1,7 @@
 package com.example.demo.matching.service;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
 import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.location.model.DistanceBand;
 import com.example.demo.location.model.Zone;
@@ -41,7 +43,7 @@ public class ReportMatchService {
 
         Report report = reportFacade.findById(reportId)
                 .filter(r -> r.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
 
         return reportMatchRepository
                 .findVisibleByReportId(report.getId(), ReportMatchStatus.SUGGESTED, ReportStatus.ACTIVE)
@@ -69,13 +71,13 @@ public class ReportMatchService {
         User user = userFacade.requireByEmail(userEmail);
 
         ReportMatch match = reportMatchRepository.findById(matchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Match not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("match.notFound"));
 
         boolean ownsLost = match.getLostReport().getUser().getId().equals(user.getId());
         boolean ownsFound = match.getFoundReport().getUser().getId().equals(user.getId());
 
         if (!ownsLost && !ownsFound) {
-            throw new ResourceNotFoundException("Match not found");
+            throw new ResourceNotFoundException("match.notFound");
         }
 
         if (ownsLost && match.getLostDismissedAt() == null) {
@@ -165,7 +167,7 @@ public class ReportMatchService {
                 report.getId(),
                 report.getTitle(),
                 report.getType(),
-                report.getCategory().getName(),
+                report.getCategory().localizedName(LocaleContextHolder.getLocale()),
                 report.getCategory().getImageUrl(),
                 report.getStatus(),
                 location,

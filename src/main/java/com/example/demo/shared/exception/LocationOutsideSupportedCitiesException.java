@@ -1,8 +1,8 @@
 package com.example.demo.shared.exception;
 
-public class LocationOutsideSupportedCitiesException extends RuntimeException {
+public class LocationOutsideSupportedCitiesException extends LocalizedException {
 
-    public LocationOutsideSupportedCitiesException(String message) {
-        super(message);
+    public LocationOutsideSupportedCitiesException(String messageKey, Object... arguments) {
+        super(messageKey, arguments);
     }
 }

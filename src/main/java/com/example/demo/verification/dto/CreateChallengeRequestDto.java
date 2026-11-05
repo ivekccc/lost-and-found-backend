@@ -13,7 +13,7 @@ import java.util.List;
 public class CreateChallengeRequestDto {
 
     @Valid
-    @NotEmpty(message = "Verification questions are required")
-    @Size(max = 10, message = "Maximum 10 verification questions per challenge")
+    @NotEmpty(message = "{validation.challenge.questions.required}")
+    @Size(max = 10, message = "{validation.challenge.questions.size}")
     private List<ChallengeQuestionRequestDto> questions;
 }

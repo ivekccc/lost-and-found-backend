@@ -6,12 +6,12 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 @Data
 public class AuthRequestDTO {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    @Size(min = 5, max = 100, message = "Email must be between 5 and 100 characters")
+    @NotBlank(message = "{validation.email.required}")
+    @Email(message = "{validation.email.invalid}")
+    @Size(min = 5, max = 100, message = "{validation.email.size}")
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
+    @NotBlank(message = "{validation.password.required}")
+    @Size(min = 6, max = 100, message = "{validation.password.size}")
     private String password;
 }

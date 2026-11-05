@@ -6,27 +6,27 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 @Data
 public class RegisterRequestDTO {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    @Size(min = 5, max = 100, message = "Email must be between 5 and 100 characters")
+    @NotBlank(message = "{validation.email.required}")
+    @Email(message = "{validation.email.invalid}")
+    @Size(min = 5, max = 100, message = "{validation.email.size}")
     private String email;
 
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    @NotBlank(message = "{validation.username.required}")
+    @Size(min = 3, max = 50, message = "{validation.username.size}")
     private String username;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
+    @NotBlank(message = "{validation.password.required}")
+    @Size(min = 6, max = 100, message = "{validation.password.size}")
     private String password;
 
-    @NotBlank(message = "First name is required")
-    @Size(max = 100, message = "First name must be less than 100 characters")
+    @NotBlank(message = "{validation.firstName.required}")
+    @Size(max = 100, message = "{validation.firstName.size}")
     private String firstName;
 
-    @NotBlank(message = "Last name is required")
-    @Size(max = 100, message = "Last name must be less than 100 characters")
+    @NotBlank(message = "{validation.lastName.required}")
+    @Size(max = 100, message = "{validation.lastName.size}")
     private String lastName;
 
-    @Size(max = 20, message = "Phone number must be less than 20 characters")
+    @Size(max = 20, message = "{validation.phoneNumber.size}")
     private String phoneNumber;
 }

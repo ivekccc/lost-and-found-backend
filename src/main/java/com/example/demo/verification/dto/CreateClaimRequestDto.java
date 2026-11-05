@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CreateClaimRequestDto {
 
-    @Size(max = 1000, message = "Message must be less than 1000 characters")
+    @Size(max = 1000, message = "{validation.message.size}")
     private String message;
 
     @Size(max = 500)
@@ -22,6 +22,6 @@ public class CreateClaimRequestDto {
     private String photoPublicId;
 
     @Valid
-    @NotEmpty(message = "Answers are required")
+    @NotEmpty(message = "{validation.claim.answers.required}")
     private List<ClaimAnswerRequestDto> answers;
 }

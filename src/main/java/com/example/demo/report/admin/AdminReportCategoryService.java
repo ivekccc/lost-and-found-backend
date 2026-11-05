@@ -42,6 +42,6 @@ public class AdminReportCategoryService {
 
     private ReportCategory requireCategory(Long categoryId) {
         return reportCategoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("category.notFound"));
     }
 }

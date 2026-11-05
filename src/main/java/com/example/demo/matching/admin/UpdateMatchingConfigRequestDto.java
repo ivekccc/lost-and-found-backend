@@ -17,34 +17,34 @@ import java.math.BigDecimal;
         description = "New scoring parameters; the three weights must add up to exactly 100")
 public class UpdateMatchingConfigRequestDto {
 
-    @NotNull(message = "Max distance is required")
-    @DecimalMin(value = "0.1", message = "Max distance must be greater than zero")
-    @DecimalMax(value = "9999.99", message = "Max distance is too large")
+    @NotNull(message = "{validation.matching.maxDistance.required}")
+    @DecimalMin(value = "0.1", message = "{validation.matching.maxDistance.positive}")
+    @DecimalMax(value = "9999.99", message = "{validation.matching.maxDistance.tooLarge}")
     private BigDecimal maxDistanceKm;
 
-    @NotNull(message = "Distance weight is required")
-    @Min(value = 0, message = "Distance weight must be between 0 and 100")
-    @Max(value = 100, message = "Distance weight must be between 0 and 100")
+    @NotNull(message = "{validation.matching.weightDistance.required}")
+    @Min(value = 0, message = "{validation.matching.weightDistance.range}")
+    @Max(value = 100, message = "{validation.matching.weightDistance.range}")
     private Integer weightDistance;
 
-    @NotNull(message = "Text weight is required")
-    @Min(value = 0, message = "Text weight must be between 0 and 100")
-    @Max(value = 100, message = "Text weight must be between 0 and 100")
+    @NotNull(message = "{validation.matching.weightText.required}")
+    @Min(value = 0, message = "{validation.matching.weightText.range}")
+    @Max(value = 100, message = "{validation.matching.weightText.range}")
     private Integer weightText;
 
-    @NotNull(message = "Time weight is required")
-    @Min(value = 0, message = "Time weight must be between 0 and 100")
-    @Max(value = 100, message = "Time weight must be between 0 and 100")
+    @NotNull(message = "{validation.matching.weightTime.required}")
+    @Min(value = 0, message = "{validation.matching.weightTime.range}")
+    @Max(value = 100, message = "{validation.matching.weightTime.range}")
     private Integer weightTime;
 
-    @NotNull(message = "Time decay is required")
-    @Min(value = 1, message = "Time decay must be at least one day")
-    @Max(value = 3650, message = "Time decay is too large")
+    @NotNull(message = "{validation.matching.timeDecay.required}")
+    @Min(value = 1, message = "{validation.matching.timeDecay.min}")
+    @Max(value = 3650, message = "{validation.matching.timeDecay.tooLarge}")
     private Integer timeDecayDays;
 
-    @NotNull(message = "Score threshold is required")
-    @Min(value = 0, message = "Score threshold must be between 0 and 100")
-    @Max(value = 100, message = "Score threshold must be between 0 and 100")
+    @NotNull(message = "{validation.matching.scoreThreshold.required}")
+    @Min(value = 0, message = "{validation.matching.scoreThreshold.range}")
+    @Max(value = 100, message = "{validation.matching.scoreThreshold.range}")
     private Integer scoreThreshold;
 
     /**
@@ -52,7 +52,7 @@ public class UpdateMatchingConfigRequestDto {
      * are constrained rather than normalised — silently rescaling them would make the admin's
      * numbers disagree with the ones on the match screen.
      */
-    @AssertTrue(message = "Weights must add up to exactly 100")
+    @AssertTrue(message = "{validation.matching.weightsSum}")
     @JsonIgnore
     @Schema(hidden = true)
     public boolean isWeightsSumValid() {

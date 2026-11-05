@@ -1,5 +1,7 @@
 package com.example.demo.matching.admin;
 
+import org.springframework.context.i18n.LocaleContextHolder;
+
 import com.example.demo.matching.model.ReportMatch;
 import com.example.demo.matching.model.ReportMatchStatus;
 import com.example.demo.matching.repository.ReportMatchRepository;
@@ -41,7 +43,7 @@ public class AdminMatchService {
     @Transactional(readOnly = true)
     public AdminMatchDetailsDto getMatch(Long id) {
         ReportMatch match = reportMatchRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Match not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("match.notFound"));
 
         return toDetailsDto(match);
     }
@@ -67,7 +69,7 @@ public class AdminMatchService {
                 match.getTextScore(),
                 config,
                 match.getStatus(),
-                match.getLostReport().getCategory().getName(),
+                match.getLostReport().getCategory().localizedName(LocaleContextHolder.getLocale()),
                 match.getLostReport().getId(),
                 match.getLostReport().getTitle(),
                 match.getLostReport().getStatus(),

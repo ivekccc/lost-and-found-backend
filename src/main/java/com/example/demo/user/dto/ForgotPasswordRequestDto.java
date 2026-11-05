@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 public class ForgotPasswordRequestDto {
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email must be valid")
+    @NotBlank(message = "{validation.email.required}")
+    @Email(message = "{validation.email.invalid}")
     private String email;
 }

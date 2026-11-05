@@ -23,9 +23,9 @@ public class ChallengeEventListener {
         notificationFacade.notify(
                 event.getReportOwnerId(),
                 NotificationType.CHALLENGE_CREATED,
-                "Someone thinks they found your item",
-                "A finder responded to \"" + event.getReportTitle() + "\". Answer their verification questions to prove ownership.",
-                "{\"reportId\":" + event.getReportId() + ",\"challengeId\":" + event.getChallengeId() + "}"
-        );
+                "notification.challengeCreated.title",
+                "notification.challengeCreated.body",
+                "{\"reportId\":" + event.getReportId() + ",\"challengeId\":" + event.getChallengeId() + "}",
+                event.getReportTitle());
     }
 }

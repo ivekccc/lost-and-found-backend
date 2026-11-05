@@ -5,11 +5,13 @@ import com.example.demo.location.LocationFacade;
 import com.example.demo.shared.exception.ResourceNotFoundException;
 import com.example.demo.user.dto.ChangeCityRequestDto;
 import com.example.demo.user.dto.DeleteAccountRequestDto;
+import com.example.demo.user.dto.UpdateLanguageRequestDto;
 import com.example.demo.user.dto.UpdateUserProfileDTO;
 import com.example.demo.user.dto.UserProfileDTO;
 import com.example.demo.user.model.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.user.service.AccountDeletionService;
+import com.example.demo.user.service.UserSettingsService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,6 +36,7 @@ public class UserController {
     private final UserRepository userRepository;
     private final AccountDeletionService accountDeletionService;
     private final LocationFacade locationFacade;
+    private final UserSettingsService userSettingsService;
 
     @GetMapping("/me")
     @Operation(summary = "Get current user profile")
@@ -80,6 +83,21 @@ public class UserController {
         return ResponseEntity.ok(toProfileDto(user));
     }
 
+    @PutMapping("/me/language")
+    @Operation(summary = "Change app language",
+            description = "Stores the language the user picked so that push notifications, inbox entries "
+                    + "and emails — which are sent without a request to read Accept-Language from — "
+                    + "arrive in it. The app itself switches immediately; this only keeps the server in step.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Language changed")
+    })
+    public ResponseEntity<Void> changeLanguage(
+            @Valid @RequestBody UpdateLanguageRequestDto request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        userSettingsService.changeLanguage(userDetails.getUsername(), request.getLanguage());
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/me/city")
     @Operation(summary = "Change the city being browsed",
             description = "Scopes search, the nearby feed, address lookup and matching to the given "
@@ -99,7 +117,7 @@ public class UserController {
         locationFacade.setActiveCity(userDetails.getUsername(), request.getCityId());
 
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
         return ResponseEntity.ok(toProfileDto(user));
     }
 
@@ -129,7 +147,8 @@ public class UserController {
                 user.getGoogleSub() != null,
                 user.getCreatedAt(),
                 user.getRole().name(),
-                locationFacade.toCityDto(user.getActiveCity())
+                locationFacade.toCityDto(user.getActiveCity()),
+                user.getLanguage()
         );
     }
 }
