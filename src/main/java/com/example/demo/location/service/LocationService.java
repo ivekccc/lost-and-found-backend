@@ -13,6 +13,7 @@ import com.example.demo.shared.exception.RateLimitExceededException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import static com.example.demo.location.util.SerbianTransliteration.toLatin;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -181,14 +182,14 @@ public class LocationService {
         LocationIqAddress address = result.getAddress();
 
         Location.LocationBuilder builder = Location.builder()
-                .formattedAddress(result.getDisplayName())
+                .formattedAddress(toLatin(result.getDisplayName()))
                 .osmId(result.getOsmId());
 
         if (address != null) {
-            builder.country(address.getCountry())
-                    .city(address.getCity())
-                    .district(firstNonNull(address.getSuburb(), address.getCityDistrict(), address.getNeighbourhood()))
-                    .street(firstNonNull(address.getRoad(), address.getName()));
+            builder.country(toLatin(address.getCountry()))
+                    .city(toLatin(address.getCity()))
+                    .district(toLatin(firstNonNull(address.getSuburb(), address.getCityDistrict(), address.getNeighbourhood())))
+                    .street(toLatin(firstNonNull(address.getRoad(), address.getName())));
         }
 
         return builder.build();
@@ -209,13 +210,13 @@ public class LocationService {
         AutoCompleteSuggestionDTO dto = new AutoCompleteSuggestionDTO();
         dto.setOsmId(result.getOsmId());
         dto.setOsmType(result.getOsmType());
-        dto.setDisplayName(result.getDisplayName());
-        dto.setDisplayPlace(result.getDisplayPlace() != null
+        dto.setDisplayName(toLatin(result.getDisplayName()));
+        dto.setDisplayPlace(toLatin(result.getDisplayPlace() != null
                 ? result.getDisplayPlace()
-                : shortPlace(result.getAddress()));
-        dto.setDisplayAddress(result.getDisplayAddress() != null
+                : shortPlace(result.getAddress())));
+        dto.setDisplayAddress(toLatin(result.getDisplayAddress() != null
                 ? result.getDisplayAddress()
-                : shortArea(result.getAddress()));
+                : shortArea(result.getAddress())));
         dto.setLatitude(parseCoordinate(result.getLat()));
         dto.setLongitude(parseCoordinate(result.getLon()));
         return dto;
