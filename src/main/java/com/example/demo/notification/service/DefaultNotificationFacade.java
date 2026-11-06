@@ -22,6 +22,12 @@ public class DefaultNotificationFacade implements NotificationFacade {
     }
 
     @Override
+    @Transactional
+    public void pushOnly(Long userId, NotificationType type, String titleKey, String bodyKey, String dataJson, Object... arguments) {
+        notificationService.pushOnly(userId, type, titleKey, bodyKey, dataJson, arguments);
+    }
+
+    @Override
     public void sendVerificationEmail(String email, String code) {
         emailService.sendVerificationEmail(email, code);
     }

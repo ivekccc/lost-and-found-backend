@@ -114,6 +114,11 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.BAD_REQUEST, localize(ex));
     }
 
+    @ExceptionHandler(InvalidChatMessageException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidChatMessage(InvalidChatMessageException ex) {
+        return respond(HttpStatus.BAD_REQUEST, localize(ex));
+    }
+
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponseDTO> handleDuplicateResource(DuplicateResourceException ex) {
         return respond(HttpStatus.CONFLICT, localize(ex));

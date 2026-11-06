@@ -1,6 +1,6 @@
 package com.example.demo.verification.service;
 
-import com.example.demo.verification.dto.RevealedContactDto;
+import com.example.demo.messaging.MessagingFacade;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
@@ -51,6 +51,7 @@ public class ClaimService {
     private final ReportFacade reportFacade;
     private final UserFacade userFacade;
     private final ApplicationEventPublisher eventPublisher;
+    private final MessagingFacade messagingFacade;
 
     @Transactional(readOnly = true)
     public ClaimantChallengeDto getChallengeForClaimant(Long challengeId, String userEmail) {
@@ -324,7 +325,7 @@ public class ClaimService {
         Report report = claim.getChallenge().getReport();
         eventPublisher.publishEvent(new ClaimDecidedEvent(
                 this, claim.getId(), claim.getChallenge().getId(), report.getId(),
-                claim.getClaimant().getId(), report.getTitle(), approved));
+                claim.getClaimant().getId(), claim.getChallenge().getAuthor().getId(), report.getTitle(), approved));
     }
 
     private void requireChallengeAuthor(Challenge challenge, User user) {
@@ -390,9 +391,7 @@ public class ClaimService {
                 ))
                 .toList();
 
-        RevealedContactDto claimantContact = claim.getStatus() == ClaimStatus.APPROVED
-                ? contactFor(claim.getClaimant(), claim.getChallenge().getReport())
-                : null;
+        Long conversationId = conversationIdOf(claim);
 
         return new ClaimDetailsDto(
                 claim.getId(),
@@ -406,17 +405,14 @@ public class ClaimService {
                 claim.getSubmittedAt(),
                 claim.getDecidedAt(),
                 answerDtos,
-                claimantContact
+                conversationId
         );
     }
 
-    private RevealedContactDto contactFor(User person, Report report) {
-        boolean isReportOwner = report.getUser().getId().equals(person.getId());
-        if (isReportOwner && (hasText(report.getContactEmail()) || hasText(report.getContactPhone()))) {
-            String email = hasText(report.getContactEmail()) ? report.getContactEmail() : person.getEmail();
-            return new RevealedContactDto(buildDisplayName(person), email, report.getContactPhone());
-        }
-        return new RevealedContactDto(buildDisplayName(person), person.getEmail(), person.getPhoneNumber());
+    private Long conversationIdOf(Claim claim) {
+        return claim.getStatus() == ClaimStatus.APPROVED
+                ? messagingFacade.findConversationIdForClaim(claim.getId()).orElse(null)
+                : null;
     }
 
     private String buildDisplayName(User user) {
@@ -425,10 +421,6 @@ public class ClaimService {
         String combined = (firstName == null ? "" : firstName) + " " + (lastName == null ? "" : lastName);
         String trimmed = combined.trim();
         return trimmed.isEmpty() ? user.getUsername() : trimmed;
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 
     private ClaimDto toDto(Claim claim) {
@@ -440,9 +432,7 @@ public class ClaimService {
                 ))
                 .toList();
 
-        RevealedContactDto holderContact = claim.getStatus() == ClaimStatus.APPROVED
-                ? contactFor(claim.getChallenge().getAuthor(), claim.getChallenge().getReport())
-                : null;
+        Long conversationId = conversationIdOf(claim);
 
         return new ClaimDto(
                 claim.getId(),
@@ -455,7 +445,7 @@ public class ClaimService {
                 claim.getSubmittedAt(),
                 claim.getDecidedAt(),
                 answerDtos,
-                holderContact
+                conversationId
         );
     }
 

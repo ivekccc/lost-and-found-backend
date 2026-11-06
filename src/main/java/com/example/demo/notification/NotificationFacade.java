@@ -12,6 +12,8 @@ public interface NotificationFacade {
 
     void notify(Long userId, NotificationType type, String titleKey, String bodyKey, String dataJson, Object... arguments);
 
+    void pushOnly(Long userId, NotificationType type, String titleKey, String bodyKey, String dataJson, Object... arguments);
+
     void sendVerificationEmail(String email, String code);
 
     void sendPasswordResetEmail(String email, String code);

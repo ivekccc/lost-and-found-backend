@@ -29,4 +29,8 @@ public class NotificationSettingsDto {
     @NotNull(message = "{validation.notificationSettings.required}")
     @Schema(description = "Own report expired or reunited.")
     private Boolean reportUpdates;
+
+    @NotNull(message = "{validation.notificationSettings.required}")
+    @Schema(description = "New chat messages while the app is not open.")
+    private Boolean messages;
 }

@@ -30,6 +30,8 @@ public interface AbuseReportRepository extends JpaRepository<AbuseReport, Long> 
 
     boolean existsByReporterIdAndTargetReportIdAndStatus(Long reporterId, Long targetReportId, AbuseReportStatus status);
 
+    boolean existsByReporterIdAndTargetMessageIdAndStatus(Long reporterId, Long targetMessageId, AbuseReportStatus status);
+
     List<AbuseReport> findByTargetUserIdAndStatus(Long targetUserId, AbuseReportStatus status);
 
     List<AbuseReport> findByTargetReportIdAndStatus(Long targetReportId, AbuseReportStatus status);

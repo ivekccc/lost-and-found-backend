@@ -1,6 +1,5 @@
 package com.example.demo.verification.dto;
 
-import com.example.demo.verification.dto.RevealedContactDto;
 import com.example.demo.verification.model.ClaimStatus;
 
 import jakarta.validation.constraints.NotNull;
@@ -43,5 +42,6 @@ public class ClaimDetailsDto {
     @NotNull
     private List<ClaimReviewAnswerDto> answers;
 
-    private RevealedContactDto claimantContact;
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Conversation with the claimant, once the claim is approved.")
+    private Long conversationId;
 }

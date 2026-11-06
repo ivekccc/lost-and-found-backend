@@ -20,6 +20,8 @@ public interface LocationFacade {
 
     java.util.Optional<Zone> findZone(Long zoneId);
 
+    java.util.Optional<String> describeMeetingPoint(java.math.BigDecimal latitude, java.math.BigDecimal longitude, Long cityId);
+
     java.util.List<CityDto> listActiveCities();
 
     java.util.Optional<Zone> resolveZone(java.math.BigDecimal latitude, java.math.BigDecimal longitude);

@@ -1,5 +1,6 @@
 package com.example.demo.report.service;
 
+import com.example.demo.messaging.MessagingFacade;
 import com.example.demo.report.dto.AbuseReportDto;
 import com.example.demo.report.dto.AbuseReportReceiptDto;
 import com.example.demo.report.dto.CreateAbuseReportRequestDto;
@@ -31,6 +32,7 @@ public class AbuseReportService {
     private final AbuseReportRepository abuseReportRepository;
     private final UserFacade userFacade;
     private final ReportRepository reportRepository;
+    private final MessagingFacade messagingFacade;
 
     @Transactional
     public AbuseReportReceiptDto createReport(String reporterEmail, CreateAbuseReportRequestDto request) {
@@ -61,6 +63,16 @@ public class AbuseReportService {
                 throw new InvalidAbuseReportException("abuse.alreadyOpenForUser");
             }
             report.setTargetUser(targetUser);
+        } else if (request.getTargetType() == AbuseTargetType.MESSAGE) {
+            MessagingFacade.ReportableMessage targetMessage = messagingFacade
+                    .findReportableMessage(request.getTargetId(), reporter.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("abuse.messageNotFound"));
+            if (abuseReportRepository.existsByReporterIdAndTargetMessageIdAndStatus(
+                    reporter.getId(), targetMessage.messageId(), AbuseReportStatus.PENDING)) {
+                throw new InvalidAbuseReportException("abuse.alreadyOpenForMessage");
+            }
+            report.setTargetMessageId(targetMessage.messageId());
+            report.setTargetUser(userFacade.requireById(targetMessage.senderId()));
         } else {
             Report targetReport = reportRepository.findById(request.getTargetId())
                     .filter(r -> r.getStatus() != ReportStatus.DELETED)
@@ -144,9 +156,16 @@ public class AbuseReportService {
     }
 
     private AbuseReportDto toDto(AbuseReport report) {
-        String targetLabel = report.getTargetType() == AbuseTargetType.USER
-                ? buildDisplayName(report.getTargetUser())
-                : report.getTargetReport().getTitle();
+        MessagingFacade.ReportableMessage targetMessage = report.getTargetMessageId() == null
+                ? null
+                : messagingFacade.describeMessage(report.getTargetMessageId()).orElse(null);
+        String targetLabel = switch (report.getTargetType()) {
+            case USER -> buildDisplayName(report.getTargetUser());
+            case REPORT -> report.getTargetReport().getTitle();
+            case MESSAGE -> targetMessage != null && !targetMessage.excerpt().isBlank()
+                    ? targetMessage.excerpt()
+                    : "#" + report.getId();
+        };
 
         return new AbuseReportDto(
                 report.getId(),
@@ -154,6 +173,8 @@ public class AbuseReportService {
                 report.getTargetType(),
                 report.getTargetUser() == null ? null : report.getTargetUser().getId(),
                 report.getTargetReport() == null ? null : report.getTargetReport().getId(),
+                report.getTargetMessageId(),
+                targetMessage == null ? null : targetMessage.conversationId(),
                 targetLabel,
                 report.getReason(),
                 report.getMessage(),

@@ -39,6 +39,7 @@ public class NotificationService {
     private final UserFacade userFacade;
     private final ApplicationEventPublisher eventPublisher;
     private final MessageSource messageSource;
+    private final FcmPushSender fcmPushSender;
 
     public void saveToken(String email, String fcmToken) {
         userFacade.savePushToken(email, fcmToken);
@@ -122,10 +123,32 @@ public class NotificationService {
         log.info("Marked {} notifications as read for user {}", updated, user.getId());
     }
 
+    @Transactional
+    public void pushOnly(Long userId, NotificationType type, String titleKey, String bodyKey,
+                         String dataJson, Object... arguments) {
+        User user = userFacade.requireById(userId);
+        if (user.getFcmToken() == null || !pushAllowed(user, type)) {
+            return;
+        }
+        Locale locale = user.getLanguage().toLocale();
+        Map<String, String> data = dataJson == null
+                ? Map.of("type", type.name())
+                : Map.of("type", type.name(), "payload", dataJson);
+        FcmPushSender.SendResult result = fcmPushSender.sendToToken(
+                user.getFcmToken(),
+                messageSource.getMessage(titleKey, arguments, locale),
+                messageSource.getMessage(bodyKey, arguments, locale),
+                data);
+        if (!result.success() && result.tokenInvalid()) {
+            fcmPushSender.removeStaleToken(userId);
+        }
+    }
+
     private boolean pushAllowed(User user, NotificationType type) {
         boolean enabled = switch (type) {
             case MATCH_FOUND -> user.isPushMatches();
             case SAVED_SEARCH_MATCH -> user.isPushSavedSearches();
+            case CHAT_MESSAGE -> user.isPushMessages();
             case CHALLENGE_CREATED, CLAIM_SUBMITTED, CLAIM_APPROVED, CLAIM_DECLINED -> user.isPushVerification();
             case REPORT_EXPIRING, REPORT_EXPIRED, REPORT_RESOLVED -> user.isPushReportUpdates();
             case ACCOUNT_BLOCKED, ACCOUNT_PARTIALLY_BLOCKED -> true;

@@ -28,6 +28,12 @@ public class AbuseReportDto {
 
     private Long targetReportId;
 
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Reported chat message, when the target is a message.")
+    private Long targetMessageId;
+
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Conversation of the reported message, for reading it in context.")
+    private Long targetConversationId;
+
     @NotBlank
     private String targetLabel;
 

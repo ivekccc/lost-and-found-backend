@@ -75,6 +75,22 @@ public class DefaultLocationFacade implements LocationFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<String> describeMeetingPoint(BigDecimal latitude, BigDecimal longitude, Long cityId) {
+        Optional<Zone> zone = zoneService.resolveZone(latitude, longitude)
+                .filter(found -> found.getCityId().equals(cityId));
+        if (zone.isEmpty()) {
+            return Optional.empty();
+        }
+        Location described = locationService.describePoint(latitude.doubleValue(), longitude.doubleValue());
+        described.setZone(zone.get());
+        String area = LocationDTO.zoneLabel(described);
+        return Optional.of(described.getStreet() == null || described.getStreet().isBlank()
+                ? area
+                : described.getStreet() + ", " + area);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<Zone> findZone(Long zoneId) {
         return zoneService.findById(zoneId);
     }

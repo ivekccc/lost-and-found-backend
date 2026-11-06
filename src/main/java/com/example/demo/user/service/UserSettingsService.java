@@ -32,6 +32,7 @@ public class UserSettingsService {
         user.setPushSavedSearches(settings.getSavedSearches());
         user.setPushVerification(settings.getVerification());
         user.setPushReportUpdates(settings.getReportUpdates());
+        user.setPushMessages(settings.getMessages());
         return toSettingsDto(user);
     }
 
@@ -45,6 +46,7 @@ public class UserSettingsService {
                 user.isPushMatches(),
                 user.isPushSavedSearches(),
                 user.isPushVerification(),
-                user.isPushReportUpdates());
+                user.isPushReportUpdates(),
+                user.isPushMessages());
     }
 }

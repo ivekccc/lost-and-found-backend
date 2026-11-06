@@ -75,4 +75,7 @@ public class User {
 
     @Column(name = "push_report_updates", nullable = false)
     private boolean pushReportUpdates = true;
+
+    @Column(name = "push_messages", nullable = false)
+    private boolean pushMessages = true;
 }

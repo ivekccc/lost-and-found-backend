@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.messaging.MessagingFacade;
 import com.example.demo.notification.NotificationFacade;
 import com.example.demo.report.ReportFacade;
 import com.example.demo.shared.exception.ResourceNotFoundException;
@@ -26,6 +27,7 @@ public class AccountDeletionService {
     private final UserRepository userRepository;
     private final ReportFacade reportFacade;
     private final VerificationFacade verificationFacade;
+    private final MessagingFacade messagingFacade;
     
     private final NotificationFacade notificationFacade;
     private final PasswordEncoder passwordEncoder;
@@ -78,6 +80,7 @@ public class AccountDeletionService {
         // The bulk notification delete clears the persistence context, so it must run before any
         // entity changes below — otherwise those pending changes would be discarded on the clear.
         notificationFacade.deleteNotificationsOfUser(userId);
+        messagingFacade.deleteConversationsOfUser(userId);
         if (user.getAvatarPublicId() != null) {
             imagesToRemove.add(user.getAvatarPublicId());
         }

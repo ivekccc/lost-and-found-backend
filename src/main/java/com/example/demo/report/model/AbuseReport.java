@@ -32,6 +32,9 @@ public class AbuseReport {
     @JoinColumn(name = "target_report_id")
     private Report targetReport;
 
+    @Column(name = "target_message_id")
+    private Long targetMessageId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reason", nullable = false, length = 30)
     private AbuseReason reason;
