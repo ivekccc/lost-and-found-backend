@@ -35,6 +35,9 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
 
     List<Report> findByStatusAndExpiresAtBefore(ReportStatus status, LocalDateTime expiresAt);
 
+    List<Report> findByStatusAndExpiresAtBetweenAndExpiryRemindedAtIsNull(
+            ReportStatus status, LocalDateTime from, LocalDateTime to);
+
     List<Report> findByStatusAndType(ReportStatus status, ReportType type);
 
     /**

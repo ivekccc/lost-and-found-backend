@@ -51,6 +51,9 @@ public class Report {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "expiry_reminded_at")
+    private LocalDateTime expiryRemindedAt;
+
     /**
      * When the owner marked the item reunited. A moment rather than a status: statistics ask WHEN,
      * and moderation overwrites the status.

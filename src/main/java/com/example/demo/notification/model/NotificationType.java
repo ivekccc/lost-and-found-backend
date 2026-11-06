@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public enum NotificationType {
     MATCH_FOUND,
     SAVED_SEARCH_MATCH,
+    REPORT_EXPIRING,
     REPORT_EXPIRED,
     REPORT_RESOLVED,
     CHALLENGE_CREATED,

@@ -109,4 +109,9 @@ public class ReportDetailsDTO {
     @NotNull
     @Schema(description = "Public link to this report's share page, safe to send to anyone")
     private String shareUrl;
+
+    @NotNull
+    @Schema(description = "True for the owner of an active report that expires within the reminder "
+            + "window, when POST /reports/{id}/extend is offered.")
+    private Boolean canExtend;
 }

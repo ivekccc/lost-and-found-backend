@@ -249,6 +249,24 @@ public class ReportController {
         return ResponseEntity.ok(reportService.resolveReport(id, userDetails.getUsername()));
     }
 
+    @PostMapping("/{id}/extend")
+    @Operation(summary = "Extend my report",
+            description = "Pushes the expiry of the caller's own active report out by a full term, counted "
+                    + "from now, and re-arms the reminder sent shortly before expiry. Only the owner may "
+                    + "call this; another user's report is reported as not found.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Report extended",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportDetailsDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Report is not active"),
+            @ApiResponse(responseCode = "404", description = "Report not found or not owned by the caller")
+    })
+    public ResponseEntity<ReportDetailsDTO> extendReport(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.extendReport(id, userDetails.getUsername()));
+    }
+
     @PostMapping("/{id}/reopen")
     @Operation(summary = "Reopen my report",
             description = "Returns the caller's own closed report to active: it appears in search and nearby "

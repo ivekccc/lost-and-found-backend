@@ -127,7 +127,7 @@ public class NotificationService {
             case MATCH_FOUND -> user.isPushMatches();
             case SAVED_SEARCH_MATCH -> user.isPushSavedSearches();
             case CHALLENGE_CREATED, CLAIM_SUBMITTED, CLAIM_APPROVED, CLAIM_DECLINED -> user.isPushVerification();
-            case REPORT_EXPIRED, REPORT_RESOLVED -> user.isPushReportUpdates();
+            case REPORT_EXPIRING, REPORT_EXPIRED, REPORT_RESOLVED -> user.isPushReportUpdates();
             case ACCOUNT_BLOCKED, ACCOUNT_PARTIALLY_BLOCKED -> true;
         };
         if (!enabled) {

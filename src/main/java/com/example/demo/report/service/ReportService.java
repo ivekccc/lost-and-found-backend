@@ -112,6 +112,9 @@ public class ReportService {
     @Value("${app.reports.default-ttl-days:60}")
     private int defaultTtlDays;
 
+    @Value("${app.reports.expiry-reminder-days:3}")
+    private int expiryReminderDays;
+
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
         User user = userFacade.requireByEmail(userEmail);
@@ -188,6 +191,7 @@ public class ReportService {
 
         report.setStatus(ReportStatus.ACTIVE);
         report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
+        report.setExpiryRemindedAt(null);
         // The reunion mark is cleared: a listing back in search plainly was not reunited, and a
         // stale resolvedAt would keep counting it as returned forever.
         report.setResolvedAt(null);
@@ -197,6 +201,23 @@ public class ReportService {
         reportRepository.save(report);
 
         eventPublisher.publishEvent(new ReportUpdatedEvent(this, report.getId()));
+
+        return toDetailsDTO(report, user, false);
+    }
+
+    @Transactional
+    public ReportDetailsDTO extendReport(Long id, String userEmail) {
+        User user = userFacade.requireByEmail(userEmail);
+
+        Report report = ownedReport(id, user);
+
+        if (report.getStatus() != ReportStatus.ACTIVE) {
+            throw new IllegalArgumentException("report.cannotExtend");
+        }
+
+        report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
+        report.setExpiryRemindedAt(null);
+        reportRepository.save(report);
 
         return toDetailsDTO(report, user, false);
     }
@@ -407,6 +428,12 @@ public class ReportService {
      * The caller's own listing, or 404. Someone else's is indistinguishable from a missing one, so
      * ids cannot be probed.
      */
+    private boolean canExtend(Report report) {
+        return report.getStatus() == ReportStatus.ACTIVE
+                && report.getExpiresAt() != null
+                && report.getExpiresAt().isBefore(LocalDateTime.now().plusDays(expiryReminderDays));
+    }
+
     private Report ownedReport(Long id, User user) {
         // Locked, not merely read: closing decides on pending claims, so it must serialise with
         // approveClaim and declineClaim, which decide on the same resource.
@@ -763,7 +790,8 @@ public class ReportService {
                 reported,
                 describeZoneOf(report).orElse(null),
                 savedReportRepository.existsByUserIdAndReportId(viewer.getId(), report.getId()),
-                reportShareService.shareUrlOf(report)
+                reportShareService.shareUrlOf(report),
+                isOwner && canExtend(report)
         );
     }
 
