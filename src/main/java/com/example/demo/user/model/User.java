@@ -63,4 +63,16 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "language", nullable = false, length = 10)
     private AppLanguage language = AppLanguage.SR_LATN;
+
+    @Column(name = "push_matches", nullable = false)
+    private boolean pushMatches = true;
+
+    @Column(name = "push_saved_searches", nullable = false)
+    private boolean pushSavedSearches = true;
+
+    @Column(name = "push_verification", nullable = false)
+    private boolean pushVerification = true;
+
+    @Column(name = "push_report_updates", nullable = false)
+    private boolean pushReportUpdates = true;
 }

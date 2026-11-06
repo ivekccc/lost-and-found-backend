@@ -5,6 +5,7 @@ import com.example.demo.location.LocationFacade;
 import com.example.demo.shared.exception.ResourceNotFoundException;
 import com.example.demo.user.dto.ChangeCityRequestDto;
 import com.example.demo.user.dto.DeleteAccountRequestDto;
+import com.example.demo.user.dto.NotificationSettingsDto;
 import com.example.demo.user.dto.UpdateLanguageRequestDto;
 import com.example.demo.user.dto.UpdateUserProfileDTO;
 import com.example.demo.user.dto.UserProfileDTO;
@@ -96,6 +97,33 @@ public class UserController {
             @AuthenticationPrincipal UserDetails userDetails) {
         userSettingsService.changeLanguage(userDetails.getUsername(), request.getLanguage());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/notification-settings")
+    @Operation(summary = "Get notification settings",
+            description = "Which kinds of notification arrive as a push. Every kind always lands in the inbox.")
+    @ApiResponse(responseCode = "200", description = "Settings returned",
+            content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = NotificationSettingsDto.class)))
+    public ResponseEntity<NotificationSettingsDto> getNotificationSettings(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(userSettingsService.getNotificationSettings(userDetails.getUsername()));
+    }
+
+    @PutMapping("/me/notification-settings")
+    @Operation(summary = "Update notification settings",
+            description = "Replaces all four switches at once. Turning a kind off stops its pushes only; "
+                    + "the inbox keeps receiving it, and account notices always push.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Settings updated",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = NotificationSettingsDto.class))),
+            @ApiResponse(responseCode = "400", description = "A switch is missing")
+    })
+    public ResponseEntity<NotificationSettingsDto> updateNotificationSettings(
+            @Valid @RequestBody NotificationSettingsDto request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(userSettingsService.updateNotificationSettings(userDetails.getUsername(), request));
     }
 
     @PutMapping("/me/city")

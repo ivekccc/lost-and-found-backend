@@ -23,13 +23,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class NotificationService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    private static final Map<NotificationType, Integer> DAILY_PUSH_LIMITS =
+            Map.of(NotificationType.SAVED_SEARCH_MATCH, 5);
 
     private final NotificationRepository notificationRepository;
     private final UserFacade userFacade;
@@ -53,7 +57,7 @@ public class NotificationService {
         notification.setBody(messageSource.getMessage(bodyKey, arguments, locale));
         notification.setDataJson(dataJson);
 
-        if (user.getFcmToken() == null) {
+        if (user.getFcmToken() == null || !pushAllowed(user, type)) {
             notification.setPushStatus(PushStatus.SKIPPED);
         }
 
@@ -116,6 +120,22 @@ public class NotificationService {
 
         int updated = notificationRepository.markAllAsReadByUserId(user.getId());
         log.info("Marked {} notifications as read for user {}", updated, user.getId());
+    }
+
+    private boolean pushAllowed(User user, NotificationType type) {
+        boolean enabled = switch (type) {
+            case MATCH_FOUND -> user.isPushMatches();
+            case SAVED_SEARCH_MATCH -> user.isPushSavedSearches();
+            case CHALLENGE_CREATED, CLAIM_SUBMITTED, CLAIM_APPROVED, CLAIM_DECLINED -> user.isPushVerification();
+            case REPORT_EXPIRED, REPORT_RESOLVED -> user.isPushReportUpdates();
+            case ACCOUNT_BLOCKED, ACCOUNT_PARTIALLY_BLOCKED -> true;
+        };
+        if (!enabled) {
+            return false;
+        }
+        Integer dailyLimit = DAILY_PUSH_LIMITS.get(type);
+        return dailyLimit == null || notificationRepository.countByUserIdAndTypeAndCreatedAtAfter(
+                user.getId(), type, LocalDateTime.now().minusDays(1)) < dailyLimit;
     }
 
     private NotificationDTO toDTO(Notification notification) {

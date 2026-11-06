@@ -53,6 +53,8 @@ public interface ReportFacade {
     /** Drops what a user had bookmarked; it survives no purpose once the account is erased. */
     void deleteSavedListingsOfUser(Long userId);
 
+    void deleteSavedSearchesOfUser(Long userId);
+
     void resolveAbuseReportsForUser(Long userId, String adminEmail);
 
     void dismissAbuseReportsForUser(Long userId, String adminEmail);

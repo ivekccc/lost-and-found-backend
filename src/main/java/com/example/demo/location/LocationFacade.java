@@ -18,6 +18,8 @@ public interface LocationFacade {
 
     java.util.Optional<ReportZoneDto> describeZone(Long zoneId);
 
+    java.util.Optional<Zone> findZone(Long zoneId);
+
     java.util.List<CityDto> listActiveCities();
 
     java.util.Optional<Zone> resolveZone(java.math.BigDecimal latitude, java.math.BigDecimal longitude);

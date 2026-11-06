@@ -75,6 +75,12 @@ public class DefaultLocationFacade implements LocationFacade {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<Zone> findZone(Long zoneId) {
+        return zoneService.findById(zoneId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<CityDto> listActiveCities() {
         return cityService.listActiveCities();
     }

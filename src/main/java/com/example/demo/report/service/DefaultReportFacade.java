@@ -25,6 +25,7 @@ public class DefaultReportFacade implements ReportFacade {
     private final ReportCategoryRepository reportCategoryRepository;
     private final AbuseReportService abuseReportService;
     private final SavedReportRepository savedReportRepository;
+    private final SavedSearchService savedSearchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -142,6 +143,12 @@ public class DefaultReportFacade implements ReportFacade {
     @Transactional
     public void deleteSavedListingsOfUser(Long userId) {
         savedReportRepository.deleteByUserId(userId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteSavedSearchesOfUser(Long userId) {
+        savedSearchService.deleteSavedSearchesOfUser(userId);
     }
 
     @Override

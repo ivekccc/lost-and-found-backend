@@ -86,6 +86,7 @@ public class AccountDeletionService {
         // and none of those foreign keys cascade.
         imagesToRemove.addAll(verificationFacade.deleteVerificationDataForListingsOf(userId));
         reportFacade.deleteSavedListingsOfUser(userId);
+        reportFacade.deleteSavedSearchesOfUser(userId);
         imagesToRemove.addAll(reportFacade.deleteListingsOfUser(userId));
         anonymize(user);
 

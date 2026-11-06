@@ -38,6 +38,11 @@ public class ZoneService {
                 .flatMap(zoneRepository::findById);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<Zone> findById(Long zoneId) {
+        return zoneId == null ? Optional.empty() : zoneRepository.findById(zoneId);
+    }
+
     /**
      * Zone boundary as GeoJSON for the map on a listing. Takes an id, not an entity, so reading it
      * does not initialise the lazy Zone proxy.

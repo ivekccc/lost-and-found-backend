@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ADD COLUMN push_matches        BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN push_saved_searches BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN push_verification   BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN push_report_updates BOOLEAN NOT NULL DEFAULT TRUE;

@@ -20,6 +20,8 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByUserIdAndIsReadFalse(Long userId);
 
+    long countByUserIdAndTypeAndCreatedAtAfter(Long userId, NotificationType type, LocalDateTime after);
+
     List<Notification> findByPushStatusAndNextRetryAtBefore(PushStatus pushStatus, LocalDateTime now);
 
     @Modifying(clearAutomatically = true)

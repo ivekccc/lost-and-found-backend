@@ -109,6 +109,16 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.BAD_REQUEST, localize(ex));
     }
 
+    @ExceptionHandler(InvalidSavedSearchException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidSavedSearch(InvalidSavedSearchException ex) {
+        return respond(HttpStatus.BAD_REQUEST, localize(ex));
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponseDTO> handleDuplicateResource(DuplicateResourceException ex) {
+        return respond(HttpStatus.CONFLICT, localize(ex));
+    }
+
     @ExceptionHandler(AccountRestrictedException.class)
     public ResponseEntity<ErrorResponseDTO> handleAccountRestricted(AccountRestrictedException ex) {
         return respond(HttpStatus.FORBIDDEN, localize(ex));
