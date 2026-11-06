@@ -14,9 +14,12 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report> {
 
     List<Report> findByUserId(Long userId);
+
+    Optional<Report> findByShareToken(UUID shareToken);
 
     /**
      * Listing loaded with an exclusive row lock. Every decision that changes claim state on one

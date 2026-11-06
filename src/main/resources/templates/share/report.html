@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${report.title} + ' · Lost &amp; Found'">Lost &amp; Found</title>
+    <meta name="description" th:content="${report.lost} ? #{share.og.lost(${report.place})} : #{share.og.found(${report.place})}">
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Lost &amp; Found">
+    <meta property="og:title" th:content="${report.title}">
+    <meta property="og:description" th:content="${report.lost} ? #{share.og.lost(${report.place})} : #{share.og.found(${report.place})}">
+    <meta property="og:url" th:content="${report.pageUrl}">
+    <meta th:if="${report.imageUrl}" property="og:image" th:content="${report.imageUrl}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="robots" content="noindex">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: -apple-system, Roboto, Arial, sans-serif; background: #FBF6EE; color: #1F1A17; }
+        .page { max-width: 480px; margin: 0 auto; padding: 24px 16px 40px; }
+        .brand { font-weight: 700; font-size: 18px; color: #D26A4F; margin-bottom: 16px; }
+        .card { background: #FFFFFF; border: 1px solid #E2D6BE; border-radius: 16px; overflow: hidden; }
+        .image { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #F8E2D7; display: block; }
+        .body { padding: 20px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+        .badge-lost { background: #F8E2D7; color: #8C3A22; }
+        .badge-found { background: #DCEEDC; color: #4F8A4D; }
+        h1 { font-size: 22px; line-height: 1.3; margin: 12px 0 8px; }
+        .description { color: #4A4038; font-size: 15px; line-height: 1.5; margin: 0 0 16px; white-space: pre-line; }
+        .meta { color: #7A6F64; font-size: 14px; line-height: 1.8; margin: 0; padding: 0; list-style: none; }
+        .notice { margin-top: 16px; padding: 12px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+        .notice-resolved { background: #DCEEDC; color: #2F5A2E; }
+        .notice-inactive { background: #EFE7DA; color: #4A4038; }
+        .actions { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .button { display: block; text-align: center; text-decoration: none; padding: 14px 16px; border-radius: 12px; font-weight: 700; font-size: 16px; }
+        .button-primary { background: #D26A4F; color: #FFFFFF; }
+        .button-secondary { border: 1px solid #E2D6BE; color: #1F1A17; background: #FFFFFF; }
+        .footer { margin-top: 20px; color: #7A6F64; font-size: 13px; line-height: 1.5; text-align: center; }
+    </style>
+</head>
+<body>
+<main class="page">
+    <div class="brand">Lost &amp; Found</div>
+    <article class="card">
+        <img th:if="${report.imageUrl}" class="image" th:src="${report.imageUrl}" th:alt="${report.title}">
+        <div class="body">
+            <span th:class="${report.lost} ? 'badge badge-lost' : 'badge badge-found'"
+                  th:text="${report.lost} ? #{share.type.lost} : #{share.type.found}">Lost</span>
+            <h1 th:text="${report.title}">Title</h1>
+            <p th:if="${report.description}" class="description" th:text="${report.description}">Description</p>
+            <ul class="meta">
+                <li th:text="#{share.meta.category(${report.category})}">Category</li>
+                <li th:if="${report.place}" th:text="#{share.meta.place(${report.place})}">Place</li>
+                <li th:text="#{share.meta.date(${report.date})}">Date</li>
+            </ul>
+            <div th:if="${report.state == 'resolved'}" class="notice notice-resolved" th:text="#{share.state.resolved}">Resolved</div>
+            <div th:if="${report.state == 'inactive'}" class="notice notice-inactive" th:text="#{share.state.inactive}">Inactive</div>
+        </div>
+    </article>
+    <div class="actions">
+        <a th:if="${report.state == 'active'}" class="button button-primary" th:href="${report.appLink}" th:text="#{share.action.openInApp}">Open in the app</a>
+        <a class="button button-secondary" th:href="${report.playStoreUrl}" th:text="#{share.action.getApp}">Get the app</a>
+    </div>
+    <p class="footer" th:text="#{share.footer}">Footer</p>
+</main>
+</body>
+</html>

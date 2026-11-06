@@ -105,4 +105,8 @@ public class ReportDetailsDTO {
             + "up front to show the right menu entry — offering \"Save\" on something already saved "
             + "is the same defect as offering an action the server would reject.")
     private Boolean saved;
+
+    @NotNull
+    @Schema(description = "Public link to this report's share page, safe to send to anyone")
+    private String shareUrl;
 }

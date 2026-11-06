@@ -10,6 +10,7 @@ import org.hibernate.annotations.BatchSize;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 @Entity
 @Table(name = "reports")
 @Getter
@@ -79,8 +80,14 @@ public class Report {
     @BatchSize(size = 50)
     private List<ReportImage> images = new ArrayList<>();
 
+    @Column(name = "share_token", nullable = false, updatable = false, unique = true)
+    private UUID shareToken;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (shareToken == null) {
+            shareToken = UUID.randomUUID();
+        }
     }
 }

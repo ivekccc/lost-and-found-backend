@@ -102,6 +102,7 @@ public class ReportService {
     private final SavedReportRepository savedReportRepository;
     private final NotificationFacade notificationFacade;
     private final ApplicationEventPublisher eventPublisher;
+    private final ReportShareService reportShareService;
 
     private static final Set<ReportStatus> EDITABLE_STATUSES =
             EnumSet.of(ReportStatus.ACTIVE, ReportStatus.CLOSED, ReportStatus.EXPIRED);
@@ -761,7 +762,8 @@ public class ReportService {
                 verificationFacade.maxClaimAttemptsPerChallenge(),
                 reported,
                 describeZoneOf(report).orElse(null),
-                savedReportRepository.existsByUserIdAndReportId(viewer.getId(), report.getId())
+                savedReportRepository.existsByUserIdAndReportId(viewer.getId(), report.getId()),
+                reportShareService.shareUrlOf(report)
         );
     }
 

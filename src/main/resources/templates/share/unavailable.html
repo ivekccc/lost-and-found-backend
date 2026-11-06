@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="#{share.unavailable.title}">Lost &amp; Found</title>
+    <meta name="robots" content="noindex">
+    <style>
+        body { margin: 0; font-family: -apple-system, Roboto, Arial, sans-serif; background: #FBF6EE; color: #1F1A17; }
+        .page { max-width: 480px; margin: 0 auto; padding: 24px 16px 40px; }
+        .brand { font-weight: 700; font-size: 18px; color: #D26A4F; margin-bottom: 16px; }
+        .card { background: #FFFFFF; border: 1px solid #E2D6BE; border-radius: 16px; padding: 24px 20px; }
+        h1 { font-size: 20px; margin: 0 0 8px; }
+        p { color: #4A4038; font-size: 15px; line-height: 1.5; margin: 0; }
+        .button { display: block; margin-top: 20px; text-align: center; text-decoration: none; padding: 14px 16px; border-radius: 12px; font-weight: 700; font-size: 16px; background: #D26A4F; color: #FFFFFF; }
+    </style>
+</head>
+<body>
+<main class="page">
+    <div class="brand">Lost &amp; Found</div>
+    <div class="card">
+        <h1 th:text="#{share.unavailable.title}">Not available</h1>
+        <p th:text="#{share.unavailable.message}">This report is no longer available.</p>
+    </div>
+    <a class="button" th:href="${playStoreUrl}" th:text="#{share.action.getApp}">Get the app</a>
+</main>
+</body>
+</html>
