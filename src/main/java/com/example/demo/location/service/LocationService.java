@@ -18,6 +18,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -84,6 +85,8 @@ public class LocationService {
                     .toList();
         } catch (HttpClientErrorException.TooManyRequests | HttpClientErrorException.NotFound e) {
             return Collections.emptyList();
+        } catch (ResourceAccessException e) {
+            throw new RateLimitExceededException("location.serviceBusy", LOCATIONIQ_RETRY_AFTER_SECONDS);
         } catch (Exception e) {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
         }
@@ -146,6 +149,8 @@ public class LocationService {
             throw new RateLimitExceededException(
                     "location.serviceBusy",
                     LOCATIONIQ_RETRY_AFTER_SECONDS);
+        } catch (ResourceAccessException e) {
+            throw new RateLimitExceededException("location.serviceBusy", LOCATIONIQ_RETRY_AFTER_SECONDS);
         } catch (Exception e) {
             throw new RuntimeException("LocationIQ API error: " + e.getMessage(), e);
         }
