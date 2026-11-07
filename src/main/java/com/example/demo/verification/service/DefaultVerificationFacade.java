@@ -10,10 +10,12 @@ import com.example.demo.verification.model.Claim;
 import com.example.demo.verification.model.ClaimStatus;
 import com.example.demo.verification.repository.ChallengeRepository;
 import com.example.demo.verification.repository.ClaimRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -137,5 +139,17 @@ public class DefaultVerificationFacade implements VerificationFacade {
             challengeRepository.delete(challenge);
         }
         return imagesToRemove;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countPendingClaims() {
+        return claimRepository.countByStatus(ClaimStatus.PENDING);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<LocalDateTime> oldestPendingClaimAt() {
+        return Optional.ofNullable(claimRepository.findOldestSubmittedAt(ClaimStatus.PENDING));
     }
 }

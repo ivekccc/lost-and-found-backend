@@ -1,9 +1,11 @@
 package com.example.demo.report;
 
+import com.example.demo.report.dto.MatchCandidateView;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportCategory;
-import com.example.demo.report.dto.MatchCandidateView;
+import com.example.demo.shared.stats.DailyCount;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,4 +60,16 @@ public interface ReportFacade {
     void resolveAbuseReportsForUser(Long userId, String adminEmail);
 
     void dismissAbuseReportsForUser(Long userId, String adminEmail);
+
+    long countPendingAbuseReports();
+
+    Optional<LocalDateTime> oldestPendingAbuseReportAt();
+
+    long countFlaggedListings();
+
+    List<DailyCount> countListingsPostedPerDay(LocalDateTime from);
+
+    List<DailyCount> countListingsReunitedPerDay(LocalDateTime from);
+
+    List<CityListingCount> countListingsPerCity(LocalDateTime reunitedSince);
 }

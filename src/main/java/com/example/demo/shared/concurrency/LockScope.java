@@ -11,7 +11,8 @@ public enum LockScope {
     CLAIM_SUBMISSION(3),
     ABUSE_REPORT(4),
     SAVED_SEARCH(5),
-    THANKS(6);
+    THANKS(6),
+    LOGIN(7);
 
     private final int id;
 }

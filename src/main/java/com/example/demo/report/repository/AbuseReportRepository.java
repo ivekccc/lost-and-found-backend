@@ -3,12 +3,27 @@ package com.example.demo.report.repository;
 import com.example.demo.report.model.AbuseReport;
 import com.example.demo.report.model.AbuseReportStatus;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import java.util.List;
-public interface AbuseReportRepository extends JpaRepository<AbuseReport, Long> {
+public interface AbuseReportRepository extends JpaRepository<AbuseReport, Long>, JpaSpecificationExecutor<AbuseReport> {
+
+    long countByStatus(AbuseReportStatus status);
+
+    @Override
+    @EntityGraph(attributePaths = {"reporter", "targetUser", "targetReport", "reviewedBy"})
+    Page<AbuseReport> findAll(Specification<AbuseReport> specification, Pageable pageable);
+
+    @Query("SELECT MIN(a.createdAt) FROM AbuseReport a WHERE a.status = :status")
+    LocalDateTime findOldestCreatedAt(@Param("status") AbuseReportStatus status);
 
     long countByTargetReportIdAndStatus(Long targetReportId, AbuseReportStatus status);
 
@@ -18,11 +33,6 @@ public interface AbuseReportRepository extends JpaRepository<AbuseReport, Long> 
     List<Long> findReportIdsWithAtLeast(@Param("reportIds") List<Long> reportIds,
                                         @Param("status") AbuseReportStatus status,
                                         @Param("threshold") long threshold);
-
-
-    List<AbuseReport> findByStatusOrderByCreatedAtDesc(AbuseReportStatus status);
-
-    List<AbuseReport> findAllByOrderByCreatedAtDesc();
 
     long countByReporterIdAndCreatedAtAfter(Long reporterId, LocalDateTime after);
 

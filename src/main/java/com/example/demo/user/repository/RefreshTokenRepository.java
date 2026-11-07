@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
+    long countByUserIdAndExpiresAtAfter(Long userId, LocalDateTime now);
+
     @Modifying
     @Query("DELETE FROM RefreshToken t WHERE t.tokenHash = :tokenHash AND t.expiresAt > :now")
     int deleteLiveByTokenHash(@Param("tokenHash") String tokenHash, @Param("now") LocalDateTime now);

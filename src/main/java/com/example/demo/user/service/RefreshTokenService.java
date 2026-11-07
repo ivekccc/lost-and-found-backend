@@ -34,6 +34,11 @@ public class RefreshTokenService {
         return refreshTokenRepository.deleteLiveByTokenHash(hash(refreshToken), LocalDateTime.now()) > 0;
     }
 
+    @Transactional(readOnly = true)
+    public long countActiveSessions(Long userId) {
+        return refreshTokenRepository.countByUserIdAndExpiresAtAfter(userId, LocalDateTime.now());
+    }
+
     @Transactional
     public void revokeAllForUser(Long userId) {
         refreshTokenRepository.deleteByUserId(userId);

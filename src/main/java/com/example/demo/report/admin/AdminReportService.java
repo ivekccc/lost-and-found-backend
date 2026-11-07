@@ -1,7 +1,8 @@
 package com.example.demo.report.admin;
 
-import org.springframework.context.i18n.LocaleContextHolder;
-
+import com.example.demo.audit.AdminActionEvent;
+import com.example.demo.audit.AuditAction;
+import com.example.demo.audit.AuditTargetType;
 import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.report.dto.ReportImageDTO;
 import com.example.demo.report.model.Report;
@@ -11,43 +12,56 @@ import com.example.demo.report.repository.ReportRepository;
 import com.example.demo.report.repository.ReportSpecifications;
 import com.example.demo.report.service.AbuseReportService;
 import com.example.demo.shared.exception.ResourceNotFoundException;
+import com.example.demo.shared.web.PageQuery;
 import com.example.demo.user.model.User;
-import com.example.demo.verification.model.ClaimStatus;
 import com.example.demo.verification.VerificationFacade;
+import com.example.demo.verification.model.ClaimStatus;
 import com.example.demo.verification.service.ClaimService;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class AdminReportService {
 
+    private static final Map<String, String> SORTABLE_COLUMNS = Map.of(
+            "createdAt", "createdAt",
+            "title", "title",
+            "status", "status",
+            "type", "type",
+            "id", "id");
+
     private final ReportRepository reportRepository;
     private final VerificationFacade verificationFacade;
     private final AbuseReportService abuseReportService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Everything moderation needs: all statuses except DELETED, all owners, always the exact
-     * location. The public GET /reports cannot serve this — it hides flagged listings by design.
-     */
     @Transactional(readOnly = true)
-    public List<AdminReportListDto> getReports(ReportType type, ReportStatus status, Long cityId) {
+    public Page<AdminReportListDto> getReports(ReportType type, ReportStatus status, Long cityId, Long ownerId,
+                                               String search, Integer page, Integer size, String sort, String direction) {
         Specification<Report> spec = Specification.allOf(
                 ReportSpecifications.statusNot(ReportStatus.DELETED),
                 ReportSpecifications.hasType(type),
                 ReportSpecifications.hasStatus(status),
                 ReportSpecifications.inCity(cityId),
+                ReportSpecifications.userIdEquals(ownerId),
+                ReportSpecifications.idOrTextContains(search),
+                ReportSpecifications.withOwnerAndCategory(),
                 ReportSpecifications.withLocationZone()
         );
-
-        return reportRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt")).stream()
-                .map(this::mapToListDto)
-                .toList();
+        PageRequest pageRequest = PageQuery.of(page, size, sort, direction, SORTABLE_COLUMNS, "createdAt", Sort.Direction.DESC);
+        return reportRepository.findAll(spec, pageRequest).map(this::mapToListDto);
     }
 
     private AdminReportListDto mapToListDto(Report report) {
@@ -85,9 +99,12 @@ public class AdminReportService {
         Report report = reportRepository.findById(id)
                 .filter(r -> r.getStatus() != ReportStatus.DELETED)
                 .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
+        ReportStatus previousStatus = report.getStatus();
         report.setStatus(ReportStatus.FLAGGED);
         reportRepository.save(report);
         abuseReportService.resolveReportsForReport(id, adminEmail);
+        eventPublisher.publishEvent(new AdminActionEvent(AuditAction.REPORT_HIDDEN, AuditTargetType.REPORT, id,
+                "Hid report #" + id, Map.of("previousStatus", previousStatus.name())));
     }
 
     /**
@@ -100,8 +117,11 @@ public class AdminReportService {
                 .filter(r -> r.getStatus() == ReportStatus.FLAGGED)
                 .orElseThrow(() -> new ResourceNotFoundException("report.flaggedNotFound"));
 
-        report.setStatus(restoredStatusFor(report));
+        ReportStatus restoredStatus = restoredStatusFor(report);
+        report.setStatus(restoredStatus);
         reportRepository.save(report);
+        eventPublisher.publishEvent(new AdminActionEvent(AuditAction.REPORT_RESTORED, AuditTargetType.REPORT, id,
+                "Restored report #" + id, Map.of("restoredStatus", restoredStatus.name())));
     }
 
     private ReportStatus restoredStatusFor(Report report) {

@@ -1,32 +1,51 @@
 package com.example.demo.report.service;
 
+import com.example.demo.audit.AdminActionEvent;
+import com.example.demo.audit.AuditAction;
+import com.example.demo.audit.AuditTargetType;
 import com.example.demo.messaging.MessagingFacade;
 import com.example.demo.report.dto.AbuseReportDto;
 import com.example.demo.report.dto.AbuseReportReceiptDto;
 import com.example.demo.report.dto.CreateAbuseReportRequestDto;
+import com.example.demo.report.model.AbuseReason;
 import com.example.demo.report.model.AbuseReport;
 import com.example.demo.report.model.AbuseReportStatus;
 import com.example.demo.report.model.AbuseTargetType;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.repository.AbuseReportRepository;
+import com.example.demo.report.repository.AbuseReportSpecifications;
 import com.example.demo.report.repository.ReportRepository;
 import com.example.demo.shared.concurrency.AdvisoryLocks;
 import com.example.demo.shared.concurrency.LockScope;
 import com.example.demo.shared.exception.InvalidAbuseReportException;
 import com.example.demo.shared.exception.RateLimitExceededException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
-import com.example.demo.user.model.User;
+import com.example.demo.shared.web.PageQuery;
 import com.example.demo.user.UserFacade;
+import com.example.demo.user.model.User;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class AbuseReportService {
+
+    private static final Map<String, String> SORTABLE_COLUMNS = Map.of(
+            "createdAt", "createdAt",
+            "status", "status",
+            "reason", "reason",
+            "id", "id");
 
     private static final int MAX_REPORTS_PER_DAY = 10;
     private static final long DAY_IN_SECONDS = 86400;
@@ -36,6 +55,7 @@ public class AbuseReportService {
     private final ReportRepository reportRepository;
     private final MessagingFacade messagingFacade;
     private final AdvisoryLocks advisoryLocks;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public AbuseReportReceiptDto createReport(String reporterEmail, CreateAbuseReportRequestDto request) {
@@ -95,11 +115,17 @@ public class AbuseReportService {
     }
 
     @Transactional(readOnly = true)
-    public List<AbuseReportDto> getReports(AbuseReportStatus status) {
-        List<AbuseReport> reports = status != null
-                ? abuseReportRepository.findByStatusOrderByCreatedAtDesc(status)
-                : abuseReportRepository.findAllByOrderByCreatedAtDesc();
-        return reports.stream().map(this::toDto).toList();
+    public Page<AbuseReportDto> getReports(AbuseReportStatus status, AbuseTargetType targetType, AbuseReason reason,
+                                           Long reportId, Long userId,
+                                           Integer page, Integer size, String sort, String direction) {
+        Specification<AbuseReport> spec = Specification.allOf(
+                AbuseReportSpecifications.hasStatus(status),
+                AbuseReportSpecifications.hasTargetType(targetType),
+                AbuseReportSpecifications.hasReason(reason),
+                AbuseReportSpecifications.targetsReport(reportId),
+                AbuseReportSpecifications.targetsUser(userId));
+        PageRequest pageRequest = PageQuery.of(page, size, sort, direction, SORTABLE_COLUMNS, "createdAt", Sort.Direction.DESC);
+        return abuseReportRepository.findAll(spec, pageRequest).map(this::toDto);
     }
 
     @Transactional
@@ -110,6 +136,8 @@ public class AbuseReportService {
         if (report.getStatus() == AbuseReportStatus.PENDING) {
             markResolved(report, admin, AbuseReportStatus.DISMISSED);
             abuseReportRepository.save(report);
+            eventPublisher.publishEvent(AdminActionEvent.of(AuditAction.ABUSE_REPORT_DISMISSED, AuditTargetType.ABUSE_REPORT, id,
+                    "Dismissed abuse report #" + id));
         }
     }
 

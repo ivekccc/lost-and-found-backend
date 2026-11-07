@@ -1,13 +1,16 @@
 package com.example.demo.user.dto;
 
+import com.example.demo.user.model.AppLanguage;
 import com.example.demo.user.model.UserRole;
 import com.example.demo.user.model.UserStatus;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
@@ -39,4 +42,17 @@ public class UserDetailsDTO {
 
     @NotNull
     private LocalDateTime createdAt;
+
+    @NotNull
+    @Schema(description = "Signed-in devices whose refresh token has not expired.")
+    private Long activeSessions;
+
+    @NotNull
+    private Boolean googleLinked;
+
+    @NotNull
+    private AppLanguage language;
+
+    @NotBlank
+    private String activeCityName;
 }

@@ -1,8 +1,9 @@
 package com.example.demo.user.service;
 
 import com.example.demo.user.repository.PasswordResetRepository;
-import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.PreRegistrationRepository;
+import com.example.demo.user.repository.RefreshTokenRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,6 +20,7 @@ public class UserCleanupTasks {
     private final PreRegistrationRepository preRegistrationRepository;
     private final PasswordResetRepository passwordResetRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final LoginAttemptService loginAttemptService;
 
     @Scheduled(fixedRateString = "${app.cleanup.interval-ms:3600000}")
     @Transactional
@@ -27,6 +29,7 @@ public class UserCleanupTasks {
         int deletedPreRegistrations = preRegistrationRepository.deleteByExpiresAtBefore(now);
         int deletedPasswordResets = passwordResetRepository.deleteByExpiresAtBefore(now);
         int deletedSessions = refreshTokenRepository.deleteByExpiresAtBefore(now);
+        int deletedLoginFailures = loginAttemptService.purgeExpired();
 
         if (deletedPreRegistrations > 0) {
             log.info("Cleaned up {} expired pre-registrations", deletedPreRegistrations);
@@ -36,6 +39,9 @@ public class UserCleanupTasks {
         }
         if (deletedSessions > 0) {
             log.info("Cleaned up {} expired sessions", deletedSessions);
+        }
+        if (deletedLoginFailures > 0) {
+            log.info("Cleaned up {} expired login failures", deletedLoginFailures);
         }
     }
 }

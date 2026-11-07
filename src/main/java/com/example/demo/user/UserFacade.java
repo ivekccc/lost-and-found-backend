@@ -1,6 +1,11 @@
 package com.example.demo.user;
 
+import com.example.demo.shared.stats.DailyCount;
 import com.example.demo.user.model.User;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * The only entry point other modules may use to reach users. Everything below this package —
@@ -14,10 +19,14 @@ public interface UserFacade {
 
     User requireByEmail(String email);
 
+    Optional<User> findByEmail(String email);
+
     User requireById(Long userId);
 
     void savePushToken(String email, String fcmToken);
 
     /** Called after a push is rejected, so the dead token is not retried forever. */
     void clearPushToken(Long userId);
+
+    List<DailyCount> countRegistrationsPerDay(LocalDateTime from);
 }

@@ -1,21 +1,29 @@
 package com.example.demo.report.service;
 
+import com.example.demo.report.CityListingCount;
 import com.example.demo.report.ReportFacade;
+import com.example.demo.report.dto.MatchCandidateView;
+import com.example.demo.report.model.AbuseReportStatus;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportCategory;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
-import com.example.demo.report.dto.MatchCandidateView;
+import com.example.demo.report.repository.AbuseReportRepository;
 import com.example.demo.report.repository.ReportCategoryRepository;
 import com.example.demo.report.repository.ReportRepository;
 import com.example.demo.report.repository.SavedReportRepository;
 import com.example.demo.shared.exception.ResourceNotFoundException;
+import com.example.demo.shared.stats.DailyCount;
+import com.example.demo.shared.stats.DailyCountView;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +34,7 @@ public class DefaultReportFacade implements ReportFacade {
     private final AbuseReportService abuseReportService;
     private final SavedReportRepository savedReportRepository;
     private final SavedSearchService savedSearchService;
+    private final AbuseReportRepository abuseReportRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -161,5 +170,45 @@ public class DefaultReportFacade implements ReportFacade {
     @Transactional
     public void dismissAbuseReportsForUser(Long userId, String adminEmail) {
         abuseReportService.dismissReportsForUser(userId, adminEmail);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countPendingAbuseReports() {
+        return abuseReportRepository.countByStatus(AbuseReportStatus.PENDING);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<LocalDateTime> oldestPendingAbuseReportAt() {
+        return Optional.ofNullable(abuseReportRepository.findOldestCreatedAt(AbuseReportStatus.PENDING));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countFlaggedListings() {
+        return reportRepository.countByStatus(ReportStatus.FLAGGED);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DailyCount> countListingsPostedPerDay(LocalDateTime from) {
+        return reportRepository.countPostedPerDay(from).stream().map(DailyCountView::toDailyCount).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DailyCount> countListingsReunitedPerDay(LocalDateTime from) {
+        return reportRepository.countReunitedPerDay(from).stream().map(DailyCountView::toDailyCount).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CityListingCount> countListingsPerCity(LocalDateTime reunitedSince) {
+        return reportRepository.countPerCity(reunitedSince).stream()
+                .map(view -> new CityListingCount(view.getCityId(), view.getCityName(),
+                        view.getActiveReports() == null ? 0 : view.getActiveReports(),
+                        view.getReunitedReports() == null ? 0 : view.getReunitedReports()))
+                .toList();
     }
 }

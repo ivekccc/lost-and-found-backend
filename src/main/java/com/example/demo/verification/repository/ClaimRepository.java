@@ -4,13 +4,24 @@ import com.example.demo.report.repository.ReportRepository;
 import com.example.demo.verification.model.Claim;
 import com.example.demo.verification.model.ClaimStatus;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-public interface ClaimRepository extends JpaRepository<Claim, Long> {
+public interface ClaimRepository extends JpaRepository<Claim, Long>, JpaSpecificationExecutor<Claim> {
+
+    long countByStatus(ClaimStatus status);
+
+    @Query("SELECT MIN(c.submittedAt) FROM Claim c WHERE c.status = :status")
+    LocalDateTime findOldestSubmittedAt(@Param("status") ClaimStatus status);
 
     List<Claim> findByChallengeIdOrderBySubmittedAtDesc(Long challengeId);
 
@@ -46,7 +57,8 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     @Query("SELECT c.challenge.report.id FROM Claim c WHERE c.id = :claimId")
     Optional<Long> findReportIdByClaimId(@Param("claimId") Long claimId);
 
-    List<Claim> findByStatusOrderBySubmittedAtDesc(ClaimStatus status);
+    @Override
+    @EntityGraph(attributePaths = {"challenge", "challenge.report", "challenge.author", "claimant"})
+    Page<Claim> findAll(Specification<Claim> specification, Pageable pageable);
 
-    List<Claim> findAllByOrderBySubmittedAtDesc();
 }

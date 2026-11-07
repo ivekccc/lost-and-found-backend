@@ -4,6 +4,7 @@ import com.example.demo.report.dto.MatchCandidateView;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
+import com.example.demo.shared.stats.DailyCountView;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,12 +12,35 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report>,
         ReportZoneCountRepository {
+
+    long countByStatus(ReportStatus status);
+
+    @Query(value = "SELECT CAST(r.created_at AS date) AS day, COUNT(*) AS count FROM reports r "
+            + "WHERE r.created_at >= :from GROUP BY CAST(r.created_at AS date)", nativeQuery = true)
+    List<DailyCountView> countPostedPerDay(@Param("from") LocalDateTime from);
+
+    @Query(value = "SELECT CAST(r.resolved_at AS date) AS day, COUNT(*) AS count FROM reports r "
+            + "WHERE r.resolved_at >= :from AND r.status NOT IN ('DELETED', 'FLAGGED') "
+            + "GROUP BY CAST(r.resolved_at AS date)", nativeQuery = true)
+    List<DailyCountView> countReunitedPerDay(@Param("from") LocalDateTime from);
+
+    @Query(value = "SELECT c.id AS \"cityId\", c.name AS \"cityName\", "
+            + "COUNT(r.id) FILTER (WHERE r.status = 'ACTIVE') AS \"activeReports\", "
+            + "COUNT(r.id) FILTER (WHERE r.resolved_at >= :from AND r.status NOT IN ('DELETED', 'FLAGGED')) "
+            + "AS \"reunitedReports\" "
+            + "FROM cities c "
+            + "LEFT JOIN zones z ON z.city_id = c.id "
+            + "LEFT JOIN locations l ON l.zone_id = z.id "
+            + "LEFT JOIN reports r ON r.location_id = l.id "
+            + "GROUP BY c.id, c.name ORDER BY c.name", nativeQuery = true)
+    List<CityReportCountView> countPerCity(@Param("from") LocalDateTime from);
 
     List<Report> findByUserId(Long userId);
 

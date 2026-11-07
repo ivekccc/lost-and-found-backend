@@ -1,18 +1,26 @@
 package com.example.demo.matching.admin;
 
+import com.example.demo.audit.AdminActionEvent;
+import com.example.demo.audit.AuditAction;
+import com.example.demo.audit.AuditTargetType;
 import com.example.demo.matching.model.MatchingConfig;
 import com.example.demo.matching.repository.MatchingConfigRepository;
+
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class AdminMatchingConfigService {
 
     private final MatchingConfigRepository matchingConfigRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public MatchingConfigDto get() {
@@ -22,6 +30,7 @@ public class AdminMatchingConfigService {
     @Transactional
     public MatchingConfigDto update(UpdateMatchingConfigRequestDto request) {
         MatchingConfig config = matchingConfigRepository.require();
+        Map<String, Object> before = snapshot(config);
 
         config.setMaxDistanceKm(request.getMaxDistanceKm());
         config.setWeightDistance(request.getWeightDistance());
@@ -31,9 +40,21 @@ public class AdminMatchingConfigService {
         config.setScoreThreshold(request.getScoreThreshold());
         config.setUpdatedAt(LocalDateTime.now());
 
-        // Matches already stored keep the parameters they were scored with; these values only
-        // affect runs from here on.
-        return toDto(matchingConfigRepository.save(config));
+        MatchingConfig saved = matchingConfigRepository.save(config);
+        eventPublisher.publishEvent(new AdminActionEvent(AuditAction.MATCHING_CONFIG_UPDATED, AuditTargetType.MATCHING_CONFIG,
+                null, "Updated matching parameters", Map.of("before", before, "after", snapshot(saved))));
+        return toDto(saved);
+    }
+
+    private Map<String, Object> snapshot(MatchingConfig config) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("maxDistanceKm", config.getMaxDistanceKm());
+        values.put("weightDistance", config.getWeightDistance());
+        values.put("weightText", config.getWeightText());
+        values.put("weightTime", config.getWeightTime());
+        values.put("timeDecayDays", config.getTimeDecayDays());
+        values.put("scoreThreshold", config.getScoreThreshold());
+        return values;
     }
 
     private MatchingConfigDto toDto(MatchingConfig config) {

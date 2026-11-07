@@ -7,6 +7,7 @@ import com.example.demo.verification.dto.QuestionTemplateDto;
 import com.example.demo.verification.model.Claim;
 import com.example.demo.verification.model.ClaimStatus;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,4 +51,8 @@ public interface VerificationFacade {
 
     /** Removes the challenges and claims attached to a user's listings, before those listings go. */
     List<String> deleteVerificationDataForListingsOf(Long userId);
+
+    long countPendingClaims();
+
+    Optional<LocalDateTime> oldestPendingClaimAt();
 }

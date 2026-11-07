@@ -1,0 +1,21 @@
+package com.example.demo.audit;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(name = "AuditAction", enumAsRef = true)
+public enum AuditAction {
+    REPORT_HIDDEN,
+    REPORT_RESTORED,
+    USER_BLOCKED,
+    USER_RESTRICTED,
+    USER_UNBLOCKED,
+    USER_DELETED,
+    USER_SESSIONS_REVOKED,
+    ABUSE_REPORT_DISMISSED,
+    CATEGORY_MIN_QUESTIONS_CHANGED,
+    CATEGORY_IMAGE_CHANGED,
+    QUESTION_TEMPLATE_CREATED,
+    QUESTION_TEMPLATE_UPDATED,
+    QUESTION_TEMPLATE_DEACTIVATED,
+    MATCHING_CONFIG_UPDATED
+}

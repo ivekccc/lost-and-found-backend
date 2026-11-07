@@ -1,11 +1,7 @@
 package com.example.demo.user.service;
 
-import org.springframework.context.i18n.LocaleContextHolder;
-
-import com.example.demo.user.model.AppLanguage;
-
-import com.example.demo.location.model.City;
 import com.example.demo.location.LocationFacade;
+import com.example.demo.location.model.City;
 import com.example.demo.notification.NotificationFacade;
 import com.example.demo.shared.concurrency.AdvisoryLocks;
 import com.example.demo.shared.concurrency.LockScope;
@@ -27,6 +23,7 @@ import com.example.demo.user.dto.ResendCodeRequestDto;
 import com.example.demo.user.dto.ResetPasswordRequestDto;
 import com.example.demo.user.dto.VerifyRequestDTO;
 import com.example.demo.user.event.GoogleAvatarRequestedEvent;
+import com.example.demo.user.model.AppLanguage;
 import com.example.demo.user.model.PasswordReset;
 import com.example.demo.user.model.PreRegistration;
 import com.example.demo.user.model.User;
@@ -40,7 +37,9 @@ import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -48,6 +47,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -67,6 +67,7 @@ public class AuthService {
     private final LocationFacade locationFacade;
     private final RefreshTokenService refreshTokenService;
     private final AdvisoryLocks advisoryLocks;
+    private final LoginAttemptService loginAttemptService;
 
     private static final int RESEND_COOLDOWN_SECONDS = 60;
 
@@ -169,11 +170,18 @@ public class AuthService {
         return issueSession(user);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = BadCredentialsException.class)
     public AuthResponseDTO login(AuthRequestDTO req) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
-        );
+        loginAttemptService.ensureAllowed(req.getEmail());
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(req.getEmail(), req.getPassword())
+            );
+        } catch (BadCredentialsException e) {
+            loginAttemptService.recordFailure(req.getEmail());
+            throw e;
+        }
+        loginAttemptService.clear(req.getEmail());
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return issueSession(user);
@@ -309,6 +317,7 @@ public class AuthService {
         userRepository.save(user);
         passwordResetRepository.delete(reset);
         refreshTokenService.revokeAllForUser(user.getId());
+        loginAttemptService.clear(req.getEmail());
     }
 
     @Transactional

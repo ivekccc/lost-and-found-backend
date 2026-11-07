@@ -10,7 +10,9 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
+
 import java.time.LocalDateTime;
 public final class ReportSpecifications {
 
@@ -104,6 +106,16 @@ public final class ReportSpecifications {
      * label reads the zone per row. The count query is skipped: Hibernate rejects a fetch join in
      * a query returning a scalar.
      */
+    public static Specification<Report> withOwnerAndCategory() {
+        return (root, query, builder) -> {
+            if (query != null && query.getResultType() != Long.class) {
+                root.fetch("user", JoinType.LEFT);
+                root.fetch("category", JoinType.LEFT);
+            }
+            return builder.conjunction();
+        };
+    }
+
     public static Specification<Report> withLocationZone() {
         return (root, query, builder) -> {
             if (query != null && query.getResultType() != Long.class) {
@@ -125,22 +137,35 @@ public final class ReportSpecifications {
         if (search == null || search.isBlank()) {
             return Specification.unrestricted();
         }
-        String pattern = "%" + search.trim().toLowerCase() + "%";
+        String term = search.trim().toLowerCase();
         return (root, query, builder) -> {
-            Expression<String> foldedPattern =
-                    unaccented(builder, builder.literal(pattern));
+            Expression<String> foldedTerm = unaccented(builder, builder.literal(term));
             return builder.or(
-                    builder.like(
-                            unaccented(builder, builder.lower(root.get("title"))),
-                            foldedPattern),
-                    builder.like(
-                            unaccented(builder, builder.lower(root.get("description"))),
-                            foldedPattern));
+                    contains(builder, unaccented(builder, builder.lower(root.get("title"))), foldedTerm),
+                    contains(builder, unaccented(builder, builder.lower(root.get("description"))), foldedTerm));
         };
+    }
+
+    public static Specification<Report> idOrTextContains(String search) {
+        if (search == null || search.isBlank()) {
+            return Specification.unrestricted();
+        }
+        String trimmed = search.trim();
+        String digits = trimmed.startsWith("#") ? trimmed.substring(1) : trimmed;
+        if (digits.matches("\\d{1,18}")) {
+            Long id = Long.valueOf(digits);
+            Specification<Report> byId = (root, query, builder) -> builder.equal(root.get("id"), id);
+            return byId.or(textContains(trimmed));
+        }
+        return textContains(trimmed);
     }
 
     private static Expression<String> unaccented(CriteriaBuilder builder,
                                                  Expression<String> value) {
         return builder.function("unaccent", String.class, value);
+    }
+
+    private static Predicate contains(CriteriaBuilder builder, Expression<String> haystack, Expression<String> needle) {
+        return builder.greaterThan(builder.function("strpos", Integer.class, haystack, needle), 0);
     }
 }
