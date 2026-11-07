@@ -148,7 +148,7 @@ public class NotificationService {
         boolean enabled = switch (type) {
             case MATCH_FOUND -> user.isPushMatches();
             case SAVED_SEARCH_MATCH -> user.isPushSavedSearches();
-            case CHAT_MESSAGE -> user.isPushMessages();
+            case CHAT_MESSAGE, THANKS_RECEIVED -> user.isPushMessages();
             case CHALLENGE_CREATED, CLAIM_SUBMITTED, CLAIM_APPROVED, CLAIM_DECLINED -> user.isPushVerification();
             case REPORT_EXPIRING, REPORT_EXPIRED, REPORT_RESOLVED -> user.isPushReportUpdates();
             case ACCOUNT_BLOCKED, ACCOUNT_PARTIALLY_BLOCKED -> true;

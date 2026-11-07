@@ -50,4 +50,7 @@ public class NearbyReportDTO {
             + "the caller's own zone or in its parent municipality, where a centroid distance would be "
             + "misleading.")
     private DistanceBand distanceBand;
+
+    @Schema(description = "Reward in dinars the owner offers to the finder; only ever set on LOST reports.")
+    private Integer rewardAmount;
 }

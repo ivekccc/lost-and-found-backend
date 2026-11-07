@@ -54,4 +54,6 @@ public class AdminReportDetailsDTO {
     private String contactPhone;
 
     private List<ReportImageDTO> images;
+
+    private Integer rewardAmount;
 }

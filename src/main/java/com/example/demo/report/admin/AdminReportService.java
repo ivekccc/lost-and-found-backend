@@ -145,7 +145,8 @@ public class AdminReportService {
                 buildFullName(report.getUser()),
                 report.getContactEmail(),
                 report.getContactPhone(),
-                imageDtos
+                imageDtos,
+                report.getRewardAmount()
         );
     }
 

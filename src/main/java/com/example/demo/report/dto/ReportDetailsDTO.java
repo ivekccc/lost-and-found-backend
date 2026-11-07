@@ -114,4 +114,11 @@ public class ReportDetailsDTO {
     @Schema(description = "True for the owner of an active report that expires within the reminder "
             + "window, when POST /reports/{id}/extend is offered.")
     private Boolean canExtend;
+
+    @Schema(description = "Reward in dinars the owner offers to the finder; only ever set on LOST reports.")
+    private Integer rewardAmount;
+
+    @NotNull
+    @Schema(description = "How many thank-yous the author of the report has received as a finder.")
+    private Long authorThanksCount;
 }

@@ -3,6 +3,7 @@ package com.example.demo.messaging.event;
 import com.example.demo.messaging.dto.ChatEventDto;
 import com.example.demo.messaging.dto.MessageDto;
 import com.example.demo.messaging.model.ChatEventType;
+import com.example.demo.messaging.model.MessageType;
 import com.example.demo.messaging.service.ChatPresenceRegistry;
 import com.example.demo.notification.NotificationFacade;
 import com.example.demo.notification.model.NotificationType;
@@ -39,12 +40,16 @@ public class ChatEventListener {
     @Async
     @TransactionalEventListener
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void pushIfOffline(MessageSentEvent event) {
+    public void notifyRecipient(MessageSentEvent event) {
+        MessageDto message = event.getMessage();
+        String dataJson = "{\"conversationId\":" + message.getConversationId() + "}";
+        if (message.getType() == MessageType.THANKS) {
+            notifyThanks(event, dataJson);
+            return;
+        }
         if (presenceRegistry.isOnline(event.getRecipientEmail())) {
             return;
         }
-        MessageDto message = event.getMessage();
-        String dataJson = "{\"conversationId\":" + message.getConversationId() + "}";
         switch (message.getType()) {
             case TEXT -> notificationFacade.pushOnly(event.getRecipientId(), NotificationType.CHAT_MESSAGE,
                     "notification.chatMessage.title", "notification.chatMessage.body", dataJson,
@@ -55,6 +60,19 @@ public class ChatEventListener {
             case CONTACT -> notificationFacade.pushOnly(event.getRecipientId(), NotificationType.CHAT_MESSAGE,
                     "notification.chatMessage.title", "notification.chatContact.body", dataJson,
                     event.getSenderName());
+        }
+    }
+
+    private void notifyThanks(MessageSentEvent event, String dataJson) {
+        String note = event.getMessage().getBody();
+        if (note == null) {
+            notificationFacade.notify(event.getRecipientId(), NotificationType.THANKS_RECEIVED,
+                    "notification.thanksReceived.title", "notification.thanksReceived.body", dataJson,
+                    event.getSenderName());
+        } else {
+            notificationFacade.notify(event.getRecipientId(), NotificationType.THANKS_RECEIVED,
+                    "notification.thanksReceived.title", "notification.thanksReceivedWithNote.body", dataJson,
+                    event.getSenderName(), preview(note));
         }
     }
 

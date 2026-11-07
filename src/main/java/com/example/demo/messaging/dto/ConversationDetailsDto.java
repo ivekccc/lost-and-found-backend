@@ -46,4 +46,9 @@ public class ConversationDetailsDto {
 
     @NotNull
     private LocalDateTime createdAt;
+
+    @NotNull
+    @Schema(description = "True for the owner of the item while no thanks has been sent in this conversation, "
+            + "when POST /conversations/{id}/thanks is offered.")
+    private Boolean canThank;
 }

@@ -6,6 +6,7 @@ import com.example.demo.messaging.dto.ConversationUnreadCountDto;
 import com.example.demo.messaging.dto.MessageDto;
 import com.example.demo.messaging.dto.MessagePageDto;
 import com.example.demo.messaging.dto.SendMessageRequestDto;
+import com.example.demo.messaging.dto.SendThanksRequestDto;
 import com.example.demo.messaging.service.MessagingService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -122,6 +123,27 @@ public class ConversationController {
     public ResponseEntity<MessageDto> shareContact(@PathVariable Long id,
                                                    @AuthenticationPrincipal UserDetails userDetails) {
         MessageDto sent = messagingService.shareContact(id, userDetails.getUsername());
+        return ResponseEntity.created(URI.create("/conversations/" + id + "/messages/" + sent.getId())).body(sent);
+    }
+
+    @PostMapping("/{id}/thanks")
+    @Operation(summary = "Thank the finder",
+            description = "Posts a thank-you from the owner of the item to the finder, with an optional note. "
+                    + "Allowed once per conversation and only for the owner of the item; the finder also "
+                    + "gets it in the notification inbox.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Thanks sent",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageDto.class))),
+            @ApiResponse(responseCode = "400", description = "The caller is the finder, not the owner of the item"),
+            @ApiResponse(responseCode = "404", description = "No such conversation of the caller"),
+            @ApiResponse(responseCode = "409", description = "Thanks already sent in this conversation"),
+            @ApiResponse(responseCode = "429", description = "Too many messages")
+    })
+    public ResponseEntity<MessageDto> sendThanks(@PathVariable Long id,
+                                                 @Valid @RequestBody(required = false) SendThanksRequestDto request,
+                                                 @AuthenticationPrincipal UserDetails userDetails) {
+        MessageDto sent = messagingService.sendThanks(id, userDetails.getUsername(), request);
         return ResponseEntity.created(URI.create("/conversations/" + id + "/messages/" + sent.getId())).body(sent);
     }
 

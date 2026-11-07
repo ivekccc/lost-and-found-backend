@@ -14,6 +14,8 @@ import com.example.demo.report.model.SavedSearch;
 import com.example.demo.report.repository.ReportCategoryRepository;
 import com.example.demo.report.repository.ReportRepository;
 import com.example.demo.report.repository.SavedSearchRepository;
+import com.example.demo.shared.concurrency.AdvisoryLocks;
+import com.example.demo.shared.concurrency.LockScope;
 import com.example.demo.shared.exception.DuplicateResourceException;
 import com.example.demo.shared.exception.InvalidSavedSearchException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
@@ -43,6 +45,7 @@ public class SavedSearchService {
     private final UserFacade userFacade;
     private final LocationFacade locationFacade;
     private final NotificationFacade notificationFacade;
+    private final AdvisoryLocks advisoryLocks;
 
     @Transactional(readOnly = true)
     public List<SavedSearchDto> getSavedSearches(String userEmail) {
@@ -75,6 +78,7 @@ public class SavedSearchService {
                         .filter(found -> found.getCityId().equals(city.getId()))
                         .orElseThrow(() -> new InvalidSavedSearchException("savedSearch.zoneNotInCity"));
 
+        advisoryLocks.lock(LockScope.SAVED_SEARCH, user.getId());
         List<SavedSearch> existing = savedSearchRepository.findAllOfUser(user.getId());
         boolean duplicate = existing.stream().anyMatch(savedSearch ->
                 savedSearch.getCity().getId().equals(city.getId())

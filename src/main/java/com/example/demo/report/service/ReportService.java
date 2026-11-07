@@ -10,6 +10,7 @@ import com.example.demo.location.model.Location;
 import com.example.demo.location.model.Zone;
 import com.example.demo.location.LocationFacade;
 import com.example.demo.matching.MatchingFacade;
+import com.example.demo.messaging.MessagingFacade;
 import com.example.demo.notification.model.NotificationType;
 import com.example.demo.notification.NotificationFacade;
 import com.example.demo.report.dto.CreateReportRequestDto;
@@ -18,6 +19,7 @@ import com.example.demo.report.dto.ReportDetailsDTO;
 import com.example.demo.report.dto.ReportImageDTO;
 import com.example.demo.report.dto.ReportImageRequestDTO;
 import com.example.demo.report.dto.ReportListDTO;
+import com.example.demo.report.dto.ZoneReportCountDto;
 import com.example.demo.report.dto.UpdateReportRequestDto;
 import com.example.demo.report.event.ReportCreatedEvent;
 import com.example.demo.report.event.ReportImagesRemovedEvent;
@@ -103,6 +105,7 @@ public class ReportService {
     private final NotificationFacade notificationFacade;
     private final ApplicationEventPublisher eventPublisher;
     private final ReportShareService reportShareService;
+    private final MessagingFacade messagingFacade;
 
     private static final Set<ReportStatus> EDITABLE_STATUSES =
             EnumSet.of(ReportStatus.ACTIVE, ReportStatus.CLOSED, ReportStatus.EXPIRED);
@@ -132,6 +135,7 @@ public class ReportService {
         report.setCategory(reportCategory);
         report.setContactEmail(createReportRequestDto.getContactEmail());
         report.setContactPhone(createReportRequestDto.getContactPhone());
+        report.setRewardAmount(rewardFor(createReportRequestDto.getType(), createReportRequestDto.getRewardAmount()));
         report.setUser(user);
         report.setStatus(ReportStatus.ACTIVE);
         report.setExpiresAt(LocalDateTime.now().plusDays(defaultTtlDays));
@@ -334,6 +338,7 @@ public class ReportService {
         report.setDescription(dto.getDescription());
         report.setContactEmail(dto.getContactEmail());
         report.setContactPhone(dto.getContactPhone());
+        report.setRewardAmount(rewardFor(report.getType(), dto.getRewardAmount()));
 
         if (!samePoint(report.getLocation(), dto.getLocation().getLatitude(), dto.getLocation().getLongitude())) {
             Location location = locationFacade.createAt(
@@ -442,6 +447,24 @@ public class ReportService {
                 .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
     }
 
+
+    @Transactional(readOnly = true)
+    public List<ZoneReportCountDto> getReportMap(ReportType type, Long categoryId, TimeWindow postedWithin,
+                                                 String search, String userEmail) {
+        User currentUser = userFacade.requireByEmail(userEmail);
+
+        Specification<Report> spec = Specification.allOf(
+                ReportSpecifications.hasStatus(ReportStatus.ACTIVE),
+                ReportSpecifications.userIdNotEquals(currentUser.getId()),
+                ReportSpecifications.inCity(currentUser.getActiveCity().getId()),
+                ReportSpecifications.hasType(type),
+                ReportSpecifications.hasCategory(categoryId),
+                ReportSpecifications.postedWithin(postedWithin),
+                ReportSpecifications.textContains(search)
+        );
+
+        return reportRepository.countByZone(spec);
+    }
 
     /**
      * Paginated because the unpaginated version measured 13.9 MB and 2 s over 50k listings, while
@@ -574,7 +597,8 @@ public class ReportService {
                 report.getCreatedAt(),
                 thumbnailUrl,
                 reportedIds.contains(report.getId()),
-                distanceBand
+                distanceBand,
+                report.getRewardAmount()
         );
     }
 
@@ -728,7 +752,8 @@ public class ReportService {
                 report.getCreatedAt(),
                 thumbnailUrl,
                 reportedIds.contains(report.getId()),
-                matchCount
+                matchCount,
+                report.getRewardAmount()
         );
     }
 
@@ -791,8 +816,17 @@ public class ReportService {
                 describeZoneOf(report).orElse(null),
                 savedReportRepository.existsByUserIdAndReportId(viewer.getId(), report.getId()),
                 reportShareService.shareUrlOf(report),
-                isOwner && canExtend(report)
+                isOwner && canExtend(report),
+                report.getRewardAmount(),
+                messagingFacade.countThanksReceived(report.getUser().getId())
         );
+    }
+
+    private Integer rewardFor(ReportType type, Integer rewardAmount) {
+        if (rewardAmount != null && type != ReportType.LOST) {
+            throw new IllegalArgumentException("report.rewardOnlyLost");
+        }
+        return rewardAmount;
     }
 
     private Optional<ReportZoneDto> describeZoneOf(Report report) {

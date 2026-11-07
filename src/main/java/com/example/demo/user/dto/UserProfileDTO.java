@@ -55,4 +55,8 @@ public class UserProfileDTO {
     @Schema(description = "Language the user chose in the app. Push notifications, inbox entries and "
             + "emails are written in it, since those are sent without a request to take a language from.")
     private AppLanguage language;
+
+    @NotNull
+    @Schema(description = "How many thank-yous the user has received as a finder.")
+    private Long thanksReceived;
 }

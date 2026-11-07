@@ -51,6 +51,7 @@
                 <li th:text="#{share.meta.category(${report.category})}">Category</li>
                 <li th:if="${report.place}" th:text="#{share.meta.place(${report.place})}">Place</li>
                 <li th:text="#{share.meta.date(${report.date})}">Date</li>
+                <li th:if="${report.reward}" th:text="#{share.meta.reward(${report.reward})}">Reward</li>
             </ul>
             <div th:if="${report.state == 'resolved'}" class="notice notice-resolved" th:text="#{share.state.resolved}">Resolved</div>
             <div th:if="${report.state == 'inactive'}" class="notice notice-inactive" th:text="#{share.state.inactive}">Inactive</div>

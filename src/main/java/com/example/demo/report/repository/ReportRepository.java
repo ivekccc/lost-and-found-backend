@@ -15,7 +15,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report> {
+public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecificationExecutor<Report>,
+        ReportZoneCountRepository {
 
     List<Report> findByUserId(Long userId);
 

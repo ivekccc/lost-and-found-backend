@@ -4,6 +4,7 @@ import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -43,4 +44,7 @@ public class ReportListDTO {
     private Boolean reported;
 
     private Long matchCount;
+
+    @Schema(description = "Reward in dinars the owner offers to the finder; only ever set on LOST reports.")
+    private Integer rewardAmount;
 }

@@ -11,6 +11,8 @@ import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.repository.AbuseReportRepository;
 import com.example.demo.report.repository.ReportRepository;
+import com.example.demo.shared.concurrency.AdvisoryLocks;
+import com.example.demo.shared.concurrency.LockScope;
 import com.example.demo.shared.exception.InvalidAbuseReportException;
 import com.example.demo.shared.exception.RateLimitExceededException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
@@ -33,10 +35,12 @@ public class AbuseReportService {
     private final UserFacade userFacade;
     private final ReportRepository reportRepository;
     private final MessagingFacade messagingFacade;
+    private final AdvisoryLocks advisoryLocks;
 
     @Transactional
     public AbuseReportReceiptDto createReport(String reporterEmail, CreateAbuseReportRequestDto request) {
         User reporter = userFacade.requireByEmail(reporterEmail);
+        advisoryLocks.lock(LockScope.ABUSE_REPORT, reporter.getId());
 
         // The daily limit is checked BEFORE the target is looked up. At the end, a non-existent id
         // returned 404 while a real one returned 429 — which told the caller the id exists.

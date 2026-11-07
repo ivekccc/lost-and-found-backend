@@ -8,15 +8,20 @@ import com.example.demo.messaging.dto.ConversationUnreadCountDto;
 import com.example.demo.messaging.dto.MessageDto;
 import com.example.demo.messaging.dto.MessagePageDto;
 import com.example.demo.messaging.dto.SendMessageRequestDto;
+import com.example.demo.messaging.dto.SendThanksRequestDto;
 import com.example.demo.messaging.event.ConversationReadEvent;
 import com.example.demo.messaging.event.MessageSentEvent;
 import com.example.demo.messaging.model.Conversation;
+import com.example.demo.messaging.model.ConversationRole;
 import com.example.demo.messaging.model.Message;
 import com.example.demo.messaging.model.MessageType;
 import com.example.demo.messaging.repository.ConversationReportView;
 import com.example.demo.messaging.repository.ConversationRepository;
 import com.example.demo.messaging.repository.MessageRepository;
 import com.example.demo.report.model.ReportType;
+import com.example.demo.shared.concurrency.AdvisoryLocks;
+import com.example.demo.shared.concurrency.LockScope;
+import com.example.demo.shared.exception.DuplicateResourceException;
 import com.example.demo.shared.exception.InvalidChatMessageException;
 import com.example.demo.shared.exception.RateLimitExceededException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
@@ -54,6 +59,7 @@ public class MessagingService {
     private final UserFacade userFacade;
     private final LocationFacade locationFacade;
     private final ApplicationEventPublisher eventPublisher;
+    private final AdvisoryLocks advisoryLocks;
 
     @Transactional
     public void openForClaim(Long claimId, Long reportId, Long holderId, Long claimantId) {
@@ -115,7 +121,8 @@ public class MessagingService {
                 ReportType.valueOf(report.getType()),
                 conversation.roleOf(viewer.getId()),
                 conversation.readAtOf(other.getId()),
-                conversation.getCreatedAt());
+                conversation.getCreatedAt(),
+                canThank(conversation, viewer));
     }
 
     @Transactional(readOnly = true)
@@ -157,6 +164,8 @@ public class MessagingService {
             message.setLatitude(request.getLatitude().setScale(COORDINATE_SCALE, RoundingMode.HALF_UP));
             message.setLongitude(request.getLongitude().setScale(COORDINATE_SCALE, RoundingMode.HALF_UP));
             message.setPlaceLabel(label);
+        } else if (request.getType() == MessageType.THANKS) {
+            throw new InvalidChatMessageException("chat.useThanksEndpoint");
         } else {
             throw new InvalidChatMessageException("chat.useContactEndpoint");
         }
@@ -182,6 +191,29 @@ public class MessagingService {
         }
 
         return deliver(conversation, sender, message, null);
+    }
+
+    @Transactional
+    public MessageDto sendThanks(Long conversationId, String userEmail, SendThanksRequestDto request) {
+        User sender = requireSender(userEmail);
+        Conversation conversation = requireOwn(conversationId, sender);
+        if (conversation.roleOf(sender.getId()) != ConversationRole.CLAIMANT) {
+            throw new InvalidChatMessageException("chat.thanksOnlyOwner");
+        }
+        advisoryLocks.lock(LockScope.THANKS, conversation.getId());
+        if (messageRepository.existsByConversationIdAndType(conversation.getId(), MessageType.THANKS)) {
+            throw new DuplicateResourceException("chat.alreadyThanked");
+        }
+
+        Message message = newMessage(conversation, sender, MessageType.THANKS);
+        String note = request == null || request.getNote() == null ? null : request.getNote().trim();
+        message.setBody(hasText(note) ? note : null);
+        return deliver(conversation, sender, message, null);
+    }
+
+    @Transactional(readOnly = true)
+    public long countThanksReceived(Long userId) {
+        return messageRepository.countByTypeAndHolderId(MessageType.THANKS, userId);
     }
 
     @Transactional
@@ -294,6 +326,11 @@ public class MessagingService {
                 .orElseThrow(() -> new ResourceNotFoundException("chat.notFound"));
     }
 
+    private boolean canThank(Conversation conversation, User viewer) {
+        return conversation.roleOf(viewer.getId()) == ConversationRole.CLAIMANT
+                && !messageRepository.existsByConversationIdAndType(conversation.getId(), MessageType.THANKS);
+    }
+
     private int unreadCount(Conversation conversation, Long viewerId) {
         LocalDateTime readAt = conversation.readAtOf(viewerId);
         long count = readAt == null
@@ -343,6 +380,7 @@ public class MessagingService {
             case TEXT -> message.getBody();
             case MEETING_POINT -> message.getPlaceLabel();
             case CONTACT -> message.getContactName();
+            case THANKS -> message.getBody();
         };
         String excerpt = text == null ? "" : text.length() > EXCERPT_LENGTH ? text.substring(0, EXCERPT_LENGTH) : text;
         return new MessagingFacade.ReportableMessage(

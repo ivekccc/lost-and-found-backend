@@ -64,6 +64,9 @@ public class Report {
     @Column(name = "closed_at")
     private LocalDateTime closedAt;
 
+    @Column(name = "reward_amount")
+    private Integer rewardAmount;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

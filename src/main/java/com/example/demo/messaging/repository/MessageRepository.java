@@ -1,6 +1,7 @@
 package com.example.demo.messaging.repository;
 
 import com.example.demo.messaging.model.Message;
+import com.example.demo.messaging.model.MessageType;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -42,6 +43,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
                               @Param("since") LocalDateTime since);
 
     long countBySenderIdAndCreatedAtAfter(Long senderId, LocalDateTime after);
+
+    boolean existsByConversationIdAndType(Long conversationId, MessageType type);
+
+    @Query("SELECT COUNT(m) FROM Message m WHERE m.type = :type AND m.conversation.holder.id = :holderId")
+    long countByTypeAndHolderId(@Param("type") MessageType type, @Param("holderId") Long holderId);
 
     @Query("SELECT m FROM Message m JOIN FETCH m.conversation c JOIN FETCH c.holder JOIN FETCH c.claimant "
             + "WHERE m.id = :id")

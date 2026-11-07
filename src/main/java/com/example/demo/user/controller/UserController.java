@@ -12,6 +12,7 @@ import com.example.demo.user.dto.UserProfileDTO;
 import com.example.demo.user.model.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.user.service.AccountDeletionService;
+import com.example.demo.user.service.UserProfileService;
 import com.example.demo.user.service.UserSettingsService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +39,7 @@ public class UserController {
     private final AccountDeletionService accountDeletionService;
     private final LocationFacade locationFacade;
     private final UserSettingsService userSettingsService;
+    private final UserProfileService userProfileService;
 
     @GetMapping("/me")
     @Operation(summary = "Get current user profile")
@@ -164,19 +166,6 @@ public class UserController {
     }
 
     private UserProfileDTO toProfileDto(User user) {
-        return new UserProfileDTO(
-                user.getId(),
-                user.getEmail(),
-                user.getUsername(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getPhoneNumber(),
-                user.getAvatarUrl(),
-                user.getGoogleSub() != null,
-                user.getCreatedAt(),
-                user.getRole().name(),
-                locationFacade.toCityDto(user.getActiveCity()),
-                user.getLanguage()
-        );
+        return userProfileService.toProfile(user);
     }
 }

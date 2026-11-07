@@ -17,6 +17,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.Locale;
@@ -81,6 +82,9 @@ public class ReportShareService {
                 report.getLocation() == null ? null : LocationDTO.zoneLabel(report.getLocation()),
                 report.getCreatedAt().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)
                         .withLocale(displayLocale(locale))),
+                report.getRewardAmount() == null
+                        ? null
+                        : NumberFormat.getIntegerInstance(displayLocale(locale)).format(report.getRewardAmount()),
                 imageOf(report),
                 shareUrlOf(report),
                 appLinkOf(report),

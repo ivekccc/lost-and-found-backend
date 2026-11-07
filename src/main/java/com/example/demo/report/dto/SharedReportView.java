@@ -8,6 +8,7 @@ public record SharedReportView(
         String category,
         String place,
         String date,
+        String reward,
         String imageUrl,
         String pageUrl,
         String appLink,

@@ -64,6 +64,25 @@ public class ReportController {
                 userDetails.getUsername()));
     }
 
+    @GetMapping("/map")
+    @Operation(summary = "Reports per zone for the map",
+            description = "Counts of active listings from other users in the caller's city, grouped by the "
+                    + "zone each listing resolved to and placed at that zone's centroid, never at an exact "
+                    + "location. Takes the same filters as GET /reports except zoneId, since picking a zone "
+                    + "is what the map is for.")
+    @ApiResponse(responseCode = "200", description = "One entry per zone with at least one listing",
+            content = @Content(mediaType = "application/json",
+                    array = @ArraySchema(schema = @Schema(implementation = ZoneReportCountDto.class))))
+    public ResponseEntity<List<ZoneReportCountDto>> getReportMap(
+            @RequestParam(required = false) ReportType type,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) TimeWindow postedWithin,
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(reportService.getReportMap(
+                type, categoryId, postedWithin, search, userDetails.getUsername()));
+    }
+
     @GetMapping("/mine")
     @Operation(summary = "Get my reports", description = "Returns the current user's own reports (all statuses except deleted)")
     public ResponseEntity<List<ReportListDTO>> getMyReports(@AuthenticationPrincipal UserDetails userDetails) {

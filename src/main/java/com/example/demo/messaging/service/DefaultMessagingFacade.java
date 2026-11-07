@@ -29,6 +29,11 @@ public class DefaultMessagingFacade implements MessagingFacade {
     }
 
     @Override
+    public long countThanksReceived(Long userId) {
+        return messagingService.countThanksReceived(userId);
+    }
+
+    @Override
     public Optional<ReportableMessage> findReportableMessage(Long messageId, Long reporterId) {
         return messagingService.findReportableMessage(messageId, reporterId);
     }

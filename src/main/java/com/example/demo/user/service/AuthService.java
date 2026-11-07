@@ -7,6 +7,8 @@ import com.example.demo.user.model.AppLanguage;
 import com.example.demo.location.model.City;
 import com.example.demo.location.LocationFacade;
 import com.example.demo.notification.NotificationFacade;
+import com.example.demo.shared.concurrency.AdvisoryLocks;
+import com.example.demo.shared.concurrency.LockScope;
 import com.example.demo.shared.exception.InvalidTokenException;
 import com.example.demo.shared.exception.InvalidVerificationException;
 import com.example.demo.shared.exception.RateLimitExceededException;
@@ -64,6 +66,7 @@ public class AuthService {
     private final ApplicationEventPublisher eventPublisher;
     private final LocationFacade locationFacade;
     private final RefreshTokenService refreshTokenService;
+    private final AdvisoryLocks advisoryLocks;
 
     private static final int RESEND_COOLDOWN_SECONDS = 60;
 
@@ -75,6 +78,7 @@ public class AuthService {
 
     @Transactional
     public void register(RegisterRequestDTO req) {
+        advisoryLocks.lock(LockScope.REGISTRATION, req.getEmail());
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
             throw new UserAlreadyExistsException("auth.emailExists");
         }
@@ -112,6 +116,7 @@ public class AuthService {
 
     @Transactional
     public void resendCode(ResendCodeRequestDto req) {
+        advisoryLocks.lock(LockScope.REGISTRATION, req.getEmail());
         PreRegistration preReg = preRegistrationRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new InvalidVerificationException(
                         "auth.noPendingRegistration"));
@@ -263,6 +268,7 @@ public class AuthService {
             return;
         }
 
+        advisoryLocks.lock(LockScope.PASSWORD_RESET, req.getEmail());
         PasswordReset reset = passwordResetRepository.findByEmail(req.getEmail()).orElse(null);
         LocalDateTime now = LocalDateTime.now();
 

@@ -5,6 +5,8 @@ import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
 import com.example.demo.report.ReportFacade;
+import com.example.demo.shared.concurrency.AdvisoryLocks;
+import com.example.demo.shared.concurrency.LockScope;
 import com.example.demo.shared.exception.InvalidClaimException;
 import com.example.demo.shared.exception.RateLimitExceededException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
@@ -52,6 +54,7 @@ public class ClaimService {
     private final UserFacade userFacade;
     private final ApplicationEventPublisher eventPublisher;
     private final MessagingFacade messagingFacade;
+    private final AdvisoryLocks advisoryLocks;
 
     @Transactional(readOnly = true)
     public ClaimantChallengeDto getChallengeForClaimant(Long challengeId, String userEmail) {
@@ -93,6 +96,7 @@ public class ClaimService {
         Report report = challenge.getReport();
 
         validateClaimant(challenge, report, claimant);
+        advisoryLocks.lock(LockScope.CLAIM_SUBMISSION, claimant.getId());
         validateLimits(challengeId, claimant.getId());
 
         Claim claim = new Claim();
