@@ -3,9 +3,12 @@ package com.example.demo.notification.service;
 import com.example.demo.notification.NotificationFacade;
 import com.example.demo.notification.model.NotificationType;
 import com.example.demo.notification.repository.NotificationRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -33,8 +36,8 @@ public class DefaultNotificationFacade implements NotificationFacade {
     }
 
     @Override
-    public void sendPasswordResetEmail(String email, String code) {
-        emailService.sendPasswordResetEmail(email, code);
+    public void sendPasswordResetEmail(String email, String code, Locale locale) {
+        emailService.sendPasswordResetEmail(email, code, locale);
     }
 
     @Override

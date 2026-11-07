@@ -1,11 +1,13 @@
 package com.example.demo.user.event;
 
+import com.example.demo.notification.NotificationFacade;
 import com.example.demo.shared.media.CloudinaryService;
 import com.example.demo.user.model.User;
 import com.example.demo.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,17 @@ public class UserEventListener {
 
     private final CloudinaryService cloudinaryService;
     private final UserRepository userRepository;
+    private final NotificationFacade notificationFacade;
+
+    @Async
+    @TransactionalEventListener
+    public void onPasswordResetRequested(PasswordResetRequestedEvent event) {
+        try {
+            notificationFacade.sendPasswordResetEmail(event.email(), event.code(), event.locale());
+        } catch (RuntimeException e) {
+            log.error("Password reset email could not be sent", e);
+        }
+    }
 
     @TransactionalEventListener
     public void onUserDeleted(UserDeletedEvent event) {

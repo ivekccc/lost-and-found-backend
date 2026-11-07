@@ -52,6 +52,10 @@ public interface VerificationFacade {
     /** Removes the challenges and claims attached to a user's listings, before those listings go. */
     List<String> deleteVerificationDataForListingsOf(Long userId);
 
+    List<String> deleteVerificationDataForListing(Long reportId);
+
+    List<String> scrubClaimsForListing(Long reportId);
+
     long countPendingClaims();
 
     Optional<LocalDateTime> oldestPendingClaimAt();

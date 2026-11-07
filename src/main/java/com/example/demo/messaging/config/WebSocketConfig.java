@@ -1,6 +1,7 @@
 package com.example.demo.messaging.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -8,6 +9,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -17,10 +19,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private static final long HEARTBEAT_MS = 10_000;
 
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
+    private final ChatSessionRegistry chatSessionRegistry;
+
+    @Value("${app.security.allowed-origins}")
+    private String[] allowedOrigins;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*");
+        registry.addEndpoint("/ws").setAllowedOrigins(allowedOrigins);
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration.addDecoratorFactory(chatSessionRegistry::decorate);
+        registration.setMessageSizeLimit(16 * 1024);
     }
 
     @Override

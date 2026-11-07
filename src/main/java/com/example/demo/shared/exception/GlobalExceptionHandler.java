@@ -1,20 +1,30 @@
 package com.example.demo.shared.exception;
 
+import com.example.demo.shared.web.RequestBodyTooLargeException;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.NoSuchMessageException;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+@Slf4j
 @ControllerAdvice
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
@@ -53,7 +63,30 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDTO> handleIllegalArgument(IllegalArgumentException ex) {
-        return respond(HttpStatus.BAD_REQUEST, localize(ex.getMessage()));
+        return respond(HttpStatus.BAD_REQUEST, localizeKnown(ex.getMessage(), "error.invalidParameter"));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleNoResource(NoResourceFoundException ex) {
+        return respond(HttpStatus.NOT_FOUND, localize("error.notFound"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponseDTO> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        return respond(HttpStatus.METHOD_NOT_ALLOWED, localize("error.methodNotAllowed"));
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, HttpMediaTypeNotSupportedException.class})
+    public ResponseEntity<ErrorResponseDTO> handleUnreadable(Exception ex) {
+        if (NestedExceptionUtils.getMostSpecificCause(ex) instanceof RequestBodyTooLargeException) {
+            return respond(HttpStatus.CONTENT_TOO_LARGE, localize("error.requestTooLarge"));
+        }
+        return respond(HttpStatus.BAD_REQUEST, localize("error.unreadableRequest"));
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponseDTO> handleAuthorizationDenied(AuthorizationDeniedException ex) {
+        return respond(HttpStatus.FORBIDDEN, localize("error.forbidden"));
     }
 
     @ExceptionHandler(InvalidVerificationException.class)
@@ -73,6 +106,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleOtherExceptions(Exception ex) {
+        log.error("Unhandled exception", ex);
         return respond(HttpStatus.INTERNAL_SERVER_ERROR, localize("error.unexpected"));
     }
 
@@ -135,6 +169,17 @@ public class GlobalExceptionHandler {
 
     private String localize(LocalizedException ex) {
         return localize(ex.getMessage(), ex.getArguments());
+    }
+
+    private String localizeKnown(String key, String fallbackKey) {
+        if (key == null) {
+            return localize(fallbackKey);
+        }
+        try {
+            return messageSource.getMessage(key, null, LocaleContextHolder.getLocale());
+        } catch (NoSuchMessageException e) {
+            return localize(fallbackKey);
+        }
     }
 
     private String localize(String key, Object... arguments) {

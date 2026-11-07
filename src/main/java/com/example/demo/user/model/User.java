@@ -5,6 +5,7 @@ import com.example.demo.location.model.City;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
 import java.time.LocalDateTime;
 @Entity
 @Table(name = "users")
@@ -42,6 +43,9 @@ public class User {
 
     @Column(name = "fcm_token")
     private String fcmToken;
+
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
 
     @Column(name = "google_sub", length = 64, unique = true)
     private String googleSub;

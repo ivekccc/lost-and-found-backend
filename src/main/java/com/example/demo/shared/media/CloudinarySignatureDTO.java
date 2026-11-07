@@ -22,11 +22,15 @@ public class CloudinarySignatureDTO {
     @NotBlank
     private String apiKey;
 
-    /**
-     * The full path the image may be uploaded under, e.g. lost-and-found/7/a3f2... The server
-     * generates and signs it and the client sends it back unchanged as public_id, so ownership
-     * becomes part of the name and needs no separate record.
-     */
     @NotBlank
     private String publicId;
+
+    @NotBlank
+    private String allowedFormats;
+
+    @NotNull
+    private Boolean overwrite;
+
+    @NotBlank
+    private String transformation;
 }

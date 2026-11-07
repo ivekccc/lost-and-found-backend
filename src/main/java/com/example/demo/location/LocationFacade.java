@@ -1,14 +1,16 @@
 package com.example.demo.location;
 
-import com.example.demo.location.model.City;
 import com.example.demo.location.dto.CityDto;
 import com.example.demo.location.dto.ReportZoneDto;
+import com.example.demo.location.model.City;
 import com.example.demo.location.model.Location;
 import com.example.demo.location.model.Zone;
 
 public interface LocationFacade {
 
     Location createAt(java.math.BigDecimal latitude, java.math.BigDecimal longitude);
+
+    void deleteLocation(Location location);
 
     City requireByCode(String code);
 

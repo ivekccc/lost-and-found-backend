@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -57,6 +56,6 @@ public class LoginAttemptService {
     }
 
     private String normalize(String email) {
-        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        return email == null ? "" : EmailAddresses.normalize(email);
     }
 }

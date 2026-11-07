@@ -1,24 +1,32 @@
 package com.example.demo.shared.media;
 
-import com.example.demo.user.model.User;
+import com.example.demo.shared.ratelimit.RateLimitPolicy;
+import com.example.demo.shared.ratelimit.RateLimiter;
 import com.example.demo.user.UserFacade;
+import com.example.demo.user.model.User;
 
 import com.cloudinary.Cloudinary;
+import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
-import java.util.UUID;
 import java.util.Map;
+import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CloudinaryService {
 
+    static final String ALLOWED_FORMATS = "jpg,jpeg,png,webp,heic";
+    static final String INCOMING_TRANSFORMATION = "c_limit,w_2000,h_2000";
+
     private final Cloudinary cloudinary;
     private final UserFacade userFacade;
+    private final RateLimiter rateLimiter;
 
     @Value("${cloudinary.cloud-name}")
     private String cloudName;
@@ -32,34 +40,35 @@ public class CloudinaryService {
     @Value("${cloudinary.upload-folder}")
     private String uploadFolder;
 
-    /**
-     * Signature for ONE upload, tied to the user through the file name. Signing only
-     * {timestamp, folder} let any account upload under someone else's path; the public_id is now
-     * server-generated as lost-and-found/{userId}/{uuid} and signed, so renaming breaks the
-     * signature.
-     */
-    @SuppressWarnings("unchecked")
     public CloudinarySignatureDTO getCloudinarySignature(String userEmail) {
         User user = userFacade.requireByEmail(userEmail);
+        rateLimiter.consume(RateLimitPolicy.UPLOAD_SIGNATURE_PER_USER, user.getId());
 
         long timestamp = System.currentTimeMillis() / 1000;
         String publicId = ownerPrefix(user.getId()) + UUID.randomUUID();
 
-        // Exactly the parameters the client sends are signed — no file, api_key or cloud_name.
         Map<String, Object> params = ObjectUtils.asMap(
+                "allowed_formats", ALLOWED_FORMATS,
+                "overwrite", "false",
+                "public_id", publicId,
                 "timestamp", timestamp,
-                "public_id", publicId
+                "transformation", INCOMING_TRANSFORMATION
         );
-        String signature = cloudinary.apiSignRequest(params, apiSecret);
+        String signature = cloudinary.apiSignRequest(params, apiSecret, cloudinary.config.signatureVersion);
 
-        return new CloudinarySignatureDTO(signature, timestamp, cloudName, apiKey, publicId);
+        return new CloudinarySignatureDTO(signature, timestamp, cloudName, apiKey, publicId,
+                ALLOWED_FORMATS, false, INCOMING_TRANSFORMATION);
     }
 
-    /**
-     * Da li slika sa datim {@code publicId}-em pripada korisniku, po prefiksu putanje.
-     */
     public boolean isOwnedBy(String publicId, Long userId) {
-        return publicId != null && publicId.startsWith(ownerPrefix(userId));
+        return publicId != null && publicId.startsWith(ownerPrefix(userId)) && !publicId.contains("..");
+    }
+
+    public String deliveryUrl(String publicId) {
+        return cloudinary.url()
+                .secure(true)
+                .transformation(new Transformation().fetchFormat("auto"))
+                .generate(publicId);
     }
 
     private String ownerPrefix(Long userId) {
@@ -70,13 +79,13 @@ public class CloudinaryService {
     public UploadedImage uploadImageFromUrl(String imageUrl) {
         try {
             Map<String, Object> result = cloudinary.uploader().upload(imageUrl, ObjectUtils.asMap(
-                    "folder", uploadFolder
+                    "folder", uploadFolder,
+                    "transformation", INCOMING_TRANSFORMATION
             ));
-            return new UploadedImage(
-                    (String) result.get("secure_url"),
-                    (String) result.get("public_id"));
+            String publicId = (String) result.get("public_id");
+            return new UploadedImage(deliveryUrl(publicId), publicId);
         } catch (Exception e) {
-            log.error("Failed to upload image to Cloudinary from URL: {}", imageUrl, e);
+            log.error("Failed to upload a remote image to Cloudinary", e);
             return null;
         }
     }
@@ -88,7 +97,7 @@ public class CloudinaryService {
         try {
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         } catch (Exception e) {
-            log.error("Failed  to delete image from Cloudinary : {}", publicId, e);
+            log.error("Failed to delete image from Cloudinary: {}", publicId, e);
         }
     }
 

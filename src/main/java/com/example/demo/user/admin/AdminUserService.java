@@ -72,7 +72,7 @@ public class AdminUserService {
                 reportFacade.hideListingsOfBlockedUser(user.getId()));
         verificationFacade.declinePendingClaimsOfUser(user.getId());
         reportFacade.resolveAbuseReportsForUser(user.getId(), adminEmail);
-        refreshTokenService.revokeAllForUser(user.getId());
+        refreshTokenService.endAllSessions(user.getId(), false);
 
         notificationFacade.notify(user.getId(), NotificationType.ACCOUNT_BLOCKED,
                 "notification.accountBlocked.title",
@@ -183,7 +183,7 @@ public class AdminUserService {
     public void revokeSessions(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("user.notFound"));
-        refreshTokenService.revokeAllForUser(user.getId());
+        refreshTokenService.endAllSessions(user.getId(), true);
         eventPublisher.publishEvent(AdminActionEvent.of(AuditAction.USER_SESSIONS_REVOKED, AuditTargetType.USER, id,
                 "Signed user #" + id + " out of every device"));
     }

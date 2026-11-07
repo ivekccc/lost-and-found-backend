@@ -1,5 +1,7 @@
 package com.example.demo.user.dto;
 
+import com.example.demo.user.service.EmailAddresses;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -12,6 +14,10 @@ public class AuthRequestDTO {
     private String email;
 
     @NotBlank(message = "{validation.password.required}")
-    @Size(min = 6, max = 100, message = "{validation.password.size}")
+    @Size(max = 128, message = "{validation.password.tooLong}")
     private String password;
+
+    public void setEmail(String email) {
+        this.email = EmailAddresses.normalize(email);
+    }
 }

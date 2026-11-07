@@ -4,6 +4,8 @@ import com.example.demo.messaging.dto.ChatEventDto;
 import com.example.demo.messaging.event.ChatEventListener;
 import com.example.demo.messaging.model.ChatEventType;
 import com.example.demo.messaging.service.MessagingService;
+import com.example.demo.shared.ratelimit.RateLimitPolicy;
+import com.example.demo.shared.ratelimit.RateLimiter;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -19,10 +21,11 @@ public class ChatSocketController {
 
     private final MessagingService messagingService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RateLimiter rateLimiter;
 
     @MessageMapping("/conversations/{conversationId}/typing")
     public void typing(@DestinationVariable Long conversationId, Principal principal) {
-        if (principal == null) {
+        if (principal == null || !rateLimiter.tryConsume(RateLimitPolicy.TYPING_PER_USER, principal.getName())) {
             return;
         }
         messagingService.typingTarget(conversationId, principal.getName())

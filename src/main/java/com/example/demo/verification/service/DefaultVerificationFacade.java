@@ -24,6 +24,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DefaultVerificationFacade implements VerificationFacade {
 
+    private static final String ERASED_ANSWER = "";
+
     private final ClaimRepository claimRepository;
     private final ChallengeRepository challengeRepository;
     private final ClaimService claimService;
@@ -120,6 +122,7 @@ public class DefaultVerificationFacade implements VerificationFacade {
             claim.setPhotoUrl(null);
             claim.setPhotoPublicId(null);
             claim.setMessage(null);
+            claim.getAnswers().forEach(answer -> answer.setAnswerText(ERASED_ANSWER));
             claimRepository.save(claim);
         }
         return imagesToRemove;
@@ -128,8 +131,36 @@ public class DefaultVerificationFacade implements VerificationFacade {
     @Override
     @Transactional
     public List<String> deleteVerificationDataForListingsOf(Long userId) {
+        return deleteChallenges(challengeRepository.findByReportOwner(userId));
+    }
+
+    @Override
+    @Transactional
+    public List<String> deleteVerificationDataForListing(Long reportId) {
+        return deleteChallenges(challengeRepository.findByReportIdOrderByCreatedAtAsc(reportId));
+    }
+
+    @Override
+    @Transactional
+    public List<String> scrubClaimsForListing(Long reportId) {
+        List<String> photos = new ArrayList<>();
+        for (Challenge challenge : challengeRepository.findByReportIdOrderByCreatedAtAsc(reportId)) {
+            for (Claim claim : claimRepository.findByChallengeIdOrderBySubmittedAtDesc(challenge.getId())) {
+                if (claim.getPhotoPublicId() != null) {
+                    photos.add(claim.getPhotoPublicId());
+                }
+                claim.setPhotoPublicId(null);
+                claim.setPhotoUrl(null);
+                claim.setMessage(null);
+                claim.getAnswers().forEach(answer -> answer.setAnswerText(ERASED_ANSWER));
+            }
+        }
+        return photos;
+    }
+
+    private List<String> deleteChallenges(List<Challenge> challenges) {
         List<String> imagesToRemove = new ArrayList<>();
-        for (Challenge challenge : challengeRepository.findByReportOwner(userId)) {
+        for (Challenge challenge : challenges) {
             for (Claim claim : claimRepository.findByChallengeIdOrderBySubmittedAtDesc(challenge.getId())) {
                 if (claim.getPhotoPublicId() != null) {
                     imagesToRemove.add(claim.getPhotoPublicId());

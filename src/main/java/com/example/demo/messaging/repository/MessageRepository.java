@@ -46,6 +46,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     boolean existsByConversationIdAndType(Long conversationId, MessageType type);
 
+    @Query("SELECT COUNT(m) > 0 FROM Message m WHERE m.type = :type AND m.conversation.reportId = :reportId")
+    boolean existsByTypeAndReportId(@Param("type") MessageType type, @Param("reportId") Long reportId);
+
     @Query("SELECT COUNT(m) FROM Message m WHERE m.type = :type AND m.conversation.holder.id = :holderId")
     long countByTypeAndHolderId(@Param("type") MessageType type, @Param("holderId") Long holderId);
 

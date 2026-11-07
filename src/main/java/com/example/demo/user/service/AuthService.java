@@ -9,7 +9,9 @@ import com.example.demo.shared.exception.InvalidTokenException;
 import com.example.demo.shared.exception.InvalidVerificationException;
 import com.example.demo.shared.exception.RateLimitExceededException;
 import com.example.demo.shared.exception.UserAlreadyExistsException;
+import com.example.demo.shared.security.AuthenticatedUser;
 import com.example.demo.shared.security.JwtUtil;
+import com.example.demo.shared.security.OneTimeCodeHasher;
 import com.example.demo.shared.util.VerificationCodeGenerator;
 import com.example.demo.user.dto.AuthRequestDTO;
 import com.example.demo.user.dto.AuthResponseDTO;
@@ -23,6 +25,7 @@ import com.example.demo.user.dto.ResendCodeRequestDto;
 import com.example.demo.user.dto.ResetPasswordRequestDto;
 import com.example.demo.user.dto.VerifyRequestDTO;
 import com.example.demo.user.event.GoogleAvatarRequestedEvent;
+import com.example.demo.user.event.PasswordResetRequestedEvent;
 import com.example.demo.user.model.AppLanguage;
 import com.example.demo.user.model.PasswordReset;
 import com.example.demo.user.model.PreRegistration;
@@ -42,8 +45,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +61,6 @@ public class AuthService {
     private final PasswordResetRepository passwordResetRepository;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
-    private final UserDetailsService userDetailsService;
     private final NotificationFacade notificationFacade;
     private final GoogleTokenVerifierService googleTokenVerifierService;
     private final ApplicationEventPublisher eventPublisher;
@@ -68,8 +68,11 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AdvisoryLocks advisoryLocks;
     private final LoginAttemptService loginAttemptService;
+    private final OneTimeCodeHasher oneTimeCodeHasher;
 
     private static final int RESEND_COOLDOWN_SECONDS = 60;
+    private static final int MAX_CODE_ATTEMPTS = 5;
+    private static final Duration MAX_PENDING_REGISTRATION = Duration.ofHours(1);
 
     @Value("${app.verification.expiry-minutes:15}")
     private int codeExpiryMinutes;
@@ -84,21 +87,19 @@ public class AuthService {
             throw new UserAlreadyExistsException("auth.emailExists");
         }
 
-        
-        preRegistrationRepository.findByEmail(req.getEmail()).ifPresent(existing -> {
-            LocalDateTime sentAt = existing.getExpiresAt().minusMinutes(codeExpiryMinutes);
-            LocalDateTime retryAt = sentAt.plusSeconds(RESEND_COOLDOWN_SECONDS);
-            LocalDateTime now = LocalDateTime.now();
-            if (retryAt.isAfter(now)) {
-                throw new RateLimitExceededException(
-                        "auth.codeJustSent",
-                        Duration.between(now, retryAt).toSeconds());
+        PreRegistration pending = preRegistrationRepository.findByEmail(req.getEmail())
+                .filter(this::isPendingUsable)
+                .orElse(null);
+        if (pending != null) {
+            if (!passwordEncoder.matches(req.getPassword(), pending.getPasswordHash())) {
+                throw new UserAlreadyExistsException("auth.registrationPending");
             }
-        });
+            requireCooldownPassed(pending.getExpiresAt(), "auth.codeJustSent");
+            sendNewRegistrationCode(pending);
+            return;
+        }
 
         preRegistrationRepository.deleteByEmail(req.getEmail());
-
-        String code = VerificationCodeGenerator.generateVerificationCode();
 
         PreRegistration preReg = new PreRegistration();
         preReg.setEmail(req.getEmail());
@@ -107,50 +108,60 @@ public class AuthService {
         preReg.setFirstName(req.getFirstName());
         preReg.setLastName(req.getLastName());
         preReg.setPhoneNumber(req.getPhoneNumber());
-        preReg.setVerificationCode(code);
-        preReg.setExpiresAt(LocalDateTime.now().plusMinutes(codeExpiryMinutes));
-
-        preRegistrationRepository.save(preReg);
-
-        notificationFacade.sendVerificationEmail(req.getEmail(), code);
+        sendNewRegistrationCode(preReg);
     }
 
     @Transactional
     public void resendCode(ResendCodeRequestDto req) {
         advisoryLocks.lock(LockScope.REGISTRATION, req.getEmail());
         PreRegistration preReg = preRegistrationRepository.findByEmail(req.getEmail())
-                .orElseThrow(() -> new InvalidVerificationException(
-                        "auth.noPendingRegistration"));
+                .filter(this::isPendingUsable)
+                .orElseThrow(() -> new InvalidVerificationException("auth.noPendingRegistration"));
+        requireCooldownPassed(preReg.getExpiresAt(), "auth.waitBeforeNewCode");
+        sendNewRegistrationCode(preReg);
+    }
 
-        LocalDateTime sentAt = preReg.getExpiresAt().minusMinutes(codeExpiryMinutes);
-        LocalDateTime retryAt = sentAt.plusSeconds(RESEND_COOLDOWN_SECONDS);
+    private boolean isPendingUsable(PreRegistration preRegistration) {
+        LocalDateTime now = LocalDateTime.now();
+        return preRegistration.getExpiresAt().isAfter(now)
+                && preRegistration.getCreatedAt().plus(MAX_PENDING_REGISTRATION).isAfter(now);
+    }
+
+    private void requireCooldownPassed(LocalDateTime expiresAt, String messageKey) {
+        LocalDateTime retryAt = expiresAt.minusMinutes(codeExpiryMinutes).plusSeconds(RESEND_COOLDOWN_SECONDS);
         LocalDateTime now = LocalDateTime.now();
         if (retryAt.isAfter(now)) {
-            throw new RateLimitExceededException(
-                    "auth.waitBeforeNewCode",
-                    Duration.between(now, retryAt).toSeconds());
+            throw new RateLimitExceededException(messageKey, Duration.between(now, retryAt).toSeconds());
         }
+    }
 
+    private void sendNewRegistrationCode(PreRegistration preReg) {
         String code = VerificationCodeGenerator.generateVerificationCode();
-        preReg.setVerificationCode(code);
+        preReg.setCodeHash(oneTimeCodeHasher.hash(preReg.getEmail(), code));
+        preReg.setFailedAttempts(0);
         preReg.setExpiresAt(LocalDateTime.now().plusMinutes(codeExpiryMinutes));
         preRegistrationRepository.save(preReg);
-
         notificationFacade.sendVerificationEmail(preReg.getEmail(), code);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidVerificationException.class)
     public AuthResponseDTO verifyCode(VerifyRequestDTO req) {
-
-       
-        PreRegistration preReg = preRegistrationRepository
-                .findByEmailAndVerificationCode(req.getEmail(), req.getCode())
+        advisoryLocks.lock(LockScope.REGISTRATION, req.getEmail());
+        PreRegistration preReg = preRegistrationRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new InvalidVerificationException("auth.invalidVerificationCode"));
 
-        if (preReg.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (!isPendingUsable(preReg)) {
             preRegistrationRepository.delete(preReg);
             throw new InvalidVerificationException("auth.verificationCodeExpired");
         }
+        if (!oneTimeCodeHasher.matches(preReg.getEmail(), req.getCode(), preReg.getCodeHash())
+                || !passwordEncoder.matches(req.getPassword(), preReg.getPasswordHash())) {
+            registerFailedAttempt(preReg.getFailedAttempts() + 1,
+                    () -> preRegistrationRepository.delete(preReg),
+                    () -> preReg.setFailedAttempts(preReg.getFailedAttempts() + 1));
+            throw new InvalidVerificationException("auth.invalidVerificationCode");
+        }
+
         User user = new User();
         user.setEmail(preReg.getEmail());
         user.setUsername(preReg.getUsername());
@@ -170,6 +181,14 @@ public class AuthService {
         return issueSession(user);
     }
 
+    private void registerFailedAttempt(int attempts, Runnable invalidate, Runnable record) {
+        if (attempts >= MAX_CODE_ATTEMPTS) {
+            invalidate.run();
+            throw new InvalidVerificationException("auth.tooManyCodeAttempts");
+        }
+        record.run();
+    }
+
     @Transactional(noRollbackFor = BadCredentialsException.class)
     public AuthResponseDTO login(AuthRequestDTO req) {
         loginAttemptService.ensureAllowed(req.getEmail());
@@ -183,7 +202,7 @@ public class AuthService {
         }
         loginAttemptService.clear(req.getEmail());
         User user = userRepository.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new BadCredentialsException("auth.badCredentials"));
         return issueSession(user);
     }
 
@@ -193,18 +212,10 @@ public class AuthService {
                 googleTokenVerifierService.verify(req.getIdToken());
 
         User user = userRepository.findByGoogleSub(identity.subject())
-                .or(() -> userRepository.findByEmail(identity.email()))
-                .orElse(null);
+                .orElseGet(() -> linkOrCreateGoogleUser(identity));
 
-        if (user == null) {
-            user = createGoogleUser(identity);
-        } else {
-            if (user.getStatus() == UserStatus.BLOCKED || user.getStatus() == UserStatus.DELETED) {
-                throw new DisabledException("User account is disabled");
-            }
-            if (user.getGoogleSub() == null) {
-                user.setGoogleSub(identity.subject());
-            }
+        if (user.getStatus() == UserStatus.BLOCKED || user.getStatus() == UserStatus.DELETED) {
+            throw new DisabledException("User account is disabled");
         }
 
         if (user.getAvatarUrl() == null && identity.pictureUrl() != null) {
@@ -215,10 +226,25 @@ public class AuthService {
         return issueSession(user);
     }
 
+    private User linkOrCreateGoogleUser(GoogleTokenVerifierService.GoogleIdentity identity) {
+        User existing = userRepository.findByEmail(identity.email()).orElse(null);
+        if (existing == null) {
+            return createGoogleUser(identity);
+        }
+        if (existing.getGoogleSub() != null) {
+            throw new UserAlreadyExistsException("auth.google.accountMismatch");
+        }
+        if (!identity.isEmailAuthoritative()) {
+            throw new UserAlreadyExistsException("auth.google.linkRequiresPassword");
+        }
+        existing.setGoogleSub(identity.subject());
+        return existing;
+    }
+
     private AuthResponseDTO issueSession(User user) {
-        String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        String accessToken = jwtUtil.generateToken(MyUserDetailsService.toAuthenticatedUser(user));
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        refreshTokenService.register(user, refreshToken, jwtUtil.extractExpiration(refreshToken));
+        refreshTokenService.startSession(user, refreshToken, jwtUtil.extractExpiration(refreshToken));
         return new AuthResponseDTO(accessToken, refreshToken, user.getRole());
     }
 
@@ -238,11 +264,6 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    /**
-     * The city a new account starts on. The column is NOT NULL so a default must exist; Belgrade is
-     * chosen because it is the only city with listings so far, and a wrong guess is cheap — the app
-     * offers a switch from GPS straight away.
-     */
     private City defaultCity() {
         return locationFacade.requireByCode(defaultCityCode);
     }
@@ -265,25 +286,18 @@ public class AuthService {
 
     @Transactional
     public void forgotPassword(ForgotPasswordRequestDto req) {
+        advisoryLocks.lock(LockScope.PASSWORD_RESET, req.getEmail());
         User user = userRepository.findByEmail(req.getEmail()).orElse(null);
-
-        // Always succeed to the caller: revealing whether an email is registered would let
-        // attackers enumerate accounts. We skip sending only for accounts that cannot log in
-        // anyway (blocked or deleted) — partially blocked users can still sign in, so they may reset.
         if (user == null
                 || user.getStatus() == UserStatus.BLOCKED
                 || user.getStatus() == UserStatus.DELETED) {
             return;
         }
 
-        advisoryLocks.lock(LockScope.PASSWORD_RESET, req.getEmail());
         PasswordReset reset = passwordResetRepository.findByEmail(req.getEmail()).orElse(null);
         LocalDateTime now = LocalDateTime.now();
-
         if (reset != null && reset.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isAfter(now)) {
-            throw new RateLimitExceededException(
-                    "auth.waitBeforeNewCode",
-                    Duration.between(now, reset.getCreatedAt().plusSeconds(RESEND_COOLDOWN_SECONDS)).toSeconds());
+            return;
         }
 
         String code = VerificationCodeGenerator.generateVerificationCode();
@@ -291,22 +305,29 @@ public class AuthService {
             reset = new PasswordReset();
             reset.setEmail(req.getEmail());
         }
-        reset.setCode(code);
+        reset.setCodeHash(oneTimeCodeHasher.hash(req.getEmail(), code));
+        reset.setFailedAttempts(0);
         reset.setCreatedAt(now);
         reset.setExpiresAt(now.plusMinutes(codeExpiryMinutes));
         passwordResetRepository.save(reset);
 
-        notificationFacade.sendPasswordResetEmail(req.getEmail(), code);
+        eventPublisher.publishEvent(new PasswordResetRequestedEvent(req.getEmail(), code, user.getLanguage().toLocale()));
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidVerificationException.class)
     public void resetPassword(ResetPasswordRequestDto req) {
+        advisoryLocks.lock(LockScope.PASSWORD_RESET, req.getEmail());
         PasswordReset reset = passwordResetRepository.findByEmail(req.getEmail())
-                .filter(r -> r.getCode().equals(req.getCode()))
                 .orElseThrow(() -> new InvalidVerificationException("auth.invalidOrExpiredCode"));
 
         if (reset.getExpiresAt().isBefore(LocalDateTime.now())) {
             passwordResetRepository.delete(reset);
+            throw new InvalidVerificationException("auth.invalidOrExpiredCode");
+        }
+        if (!oneTimeCodeHasher.matches(reset.getEmail(), req.getCode(), reset.getCodeHash())) {
+            registerFailedAttempt(reset.getFailedAttempts() + 1,
+                    () -> passwordResetRepository.delete(reset),
+                    () -> reset.setFailedAttempts(reset.getFailedAttempts() + 1));
             throw new InvalidVerificationException("auth.invalidOrExpiredCode");
         }
 
@@ -316,53 +337,42 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
         passwordResetRepository.delete(reset);
-        refreshTokenService.revokeAllForUser(user.getId());
         loginAttemptService.clear(req.getEmail());
+        refreshTokenService.endAllSessions(user.getId(), true);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidTokenException.class)
     public RefreshTokenResponseDTO refreshToken(RefreshTokenRequestDTO req) {
         String refreshToken = req.getRefreshToken();
         String username = usernameFromRefreshToken(refreshToken);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-        if (!userDetails.isEnabled() || !jwtUtil.validateRefreshToken(refreshToken, userDetails)) {
+        RefreshTokenService.RotatedSession session = refreshTokenService.rotate(refreshToken)
+                .orElseThrow(() -> new InvalidTokenException("auth.refreshTokenRevoked"));
+        User user = session.user();
+        AuthenticatedUser principal = MyUserDetailsService.toAuthenticatedUser(user);
+        if (!principal.isEnabled() || !jwtUtil.validateRefreshToken(refreshToken, principal)
+                || !user.getEmail().equals(username)) {
             throw new InvalidTokenException("auth.invalidRefreshToken");
         }
 
-        if (!refreshTokenService.consume(refreshToken)) {
-            throw new InvalidTokenException("auth.refreshTokenRevoked");
-        }
-
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        String newAccessToken = jwtUtil.generateToken(username, user.getRole().name());
-        String newRefreshToken = jwtUtil.generateRefreshToken(username);
-        refreshTokenService.register(user, newRefreshToken, jwtUtil.extractExpiration(newRefreshToken));
+        String newAccessToken = jwtUtil.generateToken(principal);
+        String newRefreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+        refreshTokenService.continueSession(session, newRefreshToken, jwtUtil.extractExpiration(newRefreshToken));
         return new RefreshTokenResponseDTO(newAccessToken, newRefreshToken);
     }
 
     @Transactional
     public void logout(LogoutRequestDto req) {
-        boolean wasLive = refreshTokenService.consume(req.getRefreshToken());
-
         String fcmToken = req.getFcmToken();
-        if (!wasLive || fcmToken == null || fcmToken.isBlank()) {
-            return;
-        }
-
-        userRepository.findByEmail(usernameFromRefreshToken(req.getRefreshToken()))
-                .filter(user -> fcmToken.equals(user.getFcmToken()))
-                .ifPresent(user -> {
-                    user.setFcmToken(null);
-                    userRepository.save(user);
-                });
+        refreshTokenService.endSession(req.getRefreshToken())
+                .filter(user -> fcmToken != null && fcmToken.equals(user.getFcmToken()))
+                .ifPresent(user -> user.setFcmToken(null));
     }
 
     private String usernameFromRefreshToken(String refreshToken) {
         try {
             return jwtUtil.extractUsername(refreshToken);
-        } catch (JwtException e) {
+        } catch (JwtException | IllegalArgumentException e) {
             throw new InvalidTokenException("auth.invalidRefreshToken");
         }
     }

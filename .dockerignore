@@ -12,3 +12,8 @@ README.md
 claude.md
 *.drawio
 src/test/
+
+src/main/resources/firebase-service-account.json
+*-firebase-adminsdk-*.json
+*.env
+backend-env.sh

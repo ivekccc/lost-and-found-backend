@@ -7,6 +7,7 @@ import com.example.demo.report.model.ReportType;
 import com.example.demo.shared.stats.DailyCountView;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -64,6 +65,9 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
             ReportStatus status, LocalDateTime from, LocalDateTime to);
 
     List<Report> findByStatusAndType(ReportStatus status, ReportType type);
+
+    @Query("SELECT r.id FROM Report r WHERE r.status = :status AND r.deletedAt < :before ORDER BY r.deletedAt")
+    List<Long> findIdsDeletedBefore(@Param("status") ReportStatus status, @Param("before") LocalDateTime before, Pageable pageable);
 
     /**
      * Matching candidates: opposite type, same category, someone else's listing, SAME CITY. The city

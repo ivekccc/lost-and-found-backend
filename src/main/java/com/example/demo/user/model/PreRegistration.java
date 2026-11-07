@@ -3,6 +3,7 @@ package com.example.demo.user.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
 import java.time.LocalDateTime;
 @Entity
 @Table(name="pre_registrations")
@@ -22,8 +23,11 @@ public class PreRegistration {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name = "verification_code", nullable = false)
-    private String verificationCode;
+    @Column(name = "code_hash", nullable = false, length = 64)
+    private String codeHash;
+
+    @Column(name = "failed_attempts", nullable = false)
+    private int failedAttempts;
 
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;

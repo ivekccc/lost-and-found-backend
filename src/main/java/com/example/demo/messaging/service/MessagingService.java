@@ -296,6 +296,7 @@ public class MessagingService {
     }
 
     private Message newMessage(Conversation conversation, User sender, MessageType type) {
+        advisoryLocks.lock(LockScope.CHAT_MESSAGE, sender.getId());
         long recent = messageRepository.countBySenderIdAndCreatedAtAfter(
                 sender.getId(), LocalDateTime.now().minusSeconds(RATE_LIMIT_WINDOW_SECONDS));
         if (recent >= MAX_MESSAGES_PER_MINUTE) {
@@ -392,5 +393,10 @@ public class MessagingService {
     }
 
     public record TypingTarget(Long typistId, String otherEmail) {
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasThanksOnListing(Long reportId) {
+        return messageRepository.existsByTypeAndReportId(MessageType.THANKS, reportId);
     }
 }

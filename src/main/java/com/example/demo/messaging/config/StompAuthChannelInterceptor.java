@@ -1,5 +1,6 @@
 package com.example.demo.messaging.config;
 
+import com.example.demo.shared.security.AuthenticatedUser;
 import com.example.demo.shared.security.JwtUtil;
 
 import io.jsonwebtoken.JwtException;
@@ -12,7 +13,6 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
@@ -35,7 +35,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             return message;
         }
         StompCommand command = accessor.getCommand();
-        if (command == StompCommand.CONNECT) {
+        if (command == StompCommand.CONNECT || command == StompCommand.STOMP) {
             accessor.setUser(authenticate(accessor.getFirstNativeHeader("Authorization")));
         } else if (command == StompCommand.SUBSCRIBE) {
             requireUser(accessor);
@@ -59,11 +59,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         }
         String token = header.substring(BEARER_PREFIX.length());
         try {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(jwtUtil.extractUsername(token));
-            if (!userDetails.isEnabled() || !jwtUtil.validateToken(token, userDetails)) {
+            if (!(userDetailsService.loadUserByUsername(jwtUtil.extractUsername(token)) instanceof AuthenticatedUser user)
+                    || !user.isEnabled() || !jwtUtil.validateToken(token, user)) {
                 throw new MessagingException("Invalid token");
             }
-            return new UsernamePasswordAuthenticationToken(userDetails.getUsername(), null, userDetails.getAuthorities());
+            return new UsernamePasswordAuthenticationToken(user.getUsername(), null, user.getAuthorities());
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException exception) {
             throw new MessagingException("Invalid token");
         }

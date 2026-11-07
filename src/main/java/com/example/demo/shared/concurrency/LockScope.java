@@ -12,7 +12,8 @@ public enum LockScope {
     ABUSE_REPORT(4),
     SAVED_SEARCH(5),
     THANKS(6),
-    LOGIN(7);
+    LOGIN(7),
+    CHAT_MESSAGE(8);
 
     private final int id;
 }

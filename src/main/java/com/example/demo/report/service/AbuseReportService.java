@@ -193,7 +193,9 @@ public class AbuseReportService {
                 : messagingFacade.describeMessage(report.getTargetMessageId()).orElse(null);
         String targetLabel = switch (report.getTargetType()) {
             case USER -> buildDisplayName(report.getTargetUser());
-            case REPORT -> report.getTargetReport().getTitle();
+            case REPORT -> report.getTargetReport() != null
+                    ? report.getTargetReport().getTitle()
+                    : "#" + report.getId();
             case MESSAGE -> targetMessage != null && !targetMessage.excerpt().isBlank()
                     ? targetMessage.excerpt()
                     : "#" + report.getId();

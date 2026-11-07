@@ -7,21 +7,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.util.List;
 import java.util.Optional;
 public interface ZoneRepository extends JpaRepository<Zone, Long> {
 
     List<Zone> findByCityIdAndLevelOrderByNameAsc(Long cityId, short level);
 
-    /**
-     * Zones of one level in one city, optionally narrowed to the children of an area and searched
-     * by name. The search folds diacritics through unaccent on both sides, so "zarkovo" finds
-     * "Žarkovo". An omitted search arrives as %, not null: Hibernate cannot type a null inside a
-     * function call, and the null branch would break the whole query.
-     */
     @Query("SELECT z FROM Zone z WHERE z.cityId = :cityId AND z.level = :level "
             + "AND (:parentId IS NULL OR z.parentId = :parentId) "
-            + "AND LOWER(FUNCTION('unaccent', z.name)) LIKE LOWER(FUNCTION('unaccent', :search)) "
+            + "AND FUNCTION('strpos', LOWER(FUNCTION('unaccent', z.name)), LOWER(FUNCTION('unaccent', :search))) > 0 "
             + "ORDER BY z.name")
     Page<Zone> findFilterZones(@Param("cityId") Long cityId,
                                @Param("level") short level,

@@ -14,6 +14,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "refresh_tokens")
@@ -37,6 +38,18 @@ public class RefreshToken {
 
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
+
+    @Column(name = "family_id", nullable = false)
+    private UUID familyId;
+
+    @Column(name = "family_expires_at", nullable = false)
+    private LocalDateTime familyExpiresAt;
+
+    @Column(name = "consumed_at")
+    private LocalDateTime consumedAt;
+
+    @Column(name = "credentials_version", nullable = false)
+    private int credentialsVersion;
 
     @PrePersist
     protected void onCreate() {

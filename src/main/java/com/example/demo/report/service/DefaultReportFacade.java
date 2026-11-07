@@ -1,5 +1,7 @@
 package com.example.demo.report.service;
 
+import com.example.demo.location.LocationFacade;
+import com.example.demo.location.model.Location;
 import com.example.demo.report.CityListingCount;
 import com.example.demo.report.ReportFacade;
 import com.example.demo.report.dto.MatchCandidateView;
@@ -35,6 +37,7 @@ public class DefaultReportFacade implements ReportFacade {
     private final SavedReportRepository savedReportRepository;
     private final SavedSearchService savedSearchService;
     private final AbuseReportRepository abuseReportRepository;
+    private final LocationFacade locationFacade;
 
     @Override
     @Transactional(readOnly = true)
@@ -143,7 +146,10 @@ public class DefaultReportFacade implements ReportFacade {
                     imagesToRemove.add(image.getPublicId());
                 }
             }
+            Location location = report.getLocation();
             reportRepository.delete(report);
+            reportRepository.flush();
+            locationFacade.deleteLocation(location);
         }
         return imagesToRemove;
     }

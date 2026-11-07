@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.util.List;
 @Data
 @NoArgsConstructor
@@ -14,9 +15,6 @@ public class CreateClaimRequestDto {
 
     @Size(max = 1000, message = "{validation.message.size}")
     private String message;
-
-    @Size(max = 500)
-    private String photoUrl;
 
     @Size(max = 255)
     private String photoPublicId;

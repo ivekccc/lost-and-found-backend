@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -84,9 +85,7 @@ public class ZoneService {
                 Math.max(page, 0),
                 Math.min(Math.max(size, 1), MAX_PAGE_SIZE));
 
-        String pattern = (search == null || search.isBlank())
-                ? "%"
-                : "%" + search.trim() + "%";
+        String pattern = search == null ? "" : search.trim();
 
         return zoneRepository
                 .findFilterZones(city.getId(), NEIGHBOURHOOD_LEVEL, areaId, pattern, pageable)

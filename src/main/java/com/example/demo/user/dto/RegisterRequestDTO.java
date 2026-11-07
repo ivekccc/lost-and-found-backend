@@ -1,5 +1,8 @@
 package com.example.demo.user.dto;
 
+import com.example.demo.shared.validation.MaxUtf8Bytes;
+import com.example.demo.user.service.EmailAddresses;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -16,7 +19,8 @@ public class RegisterRequestDTO {
     private String username;
 
     @NotBlank(message = "{validation.password.required}")
-    @Size(min = 6, max = 100, message = "{validation.password.size}")
+    @Size(min = 8, max = 64, message = "{validation.password.size}")
+    @MaxUtf8Bytes(72)
     private String password;
 
     @NotBlank(message = "{validation.firstName.required}")
@@ -29,4 +33,8 @@ public class RegisterRequestDTO {
 
     @Size(max = 20, message = "{validation.phoneNumber.size}")
     private String phoneNumber;
+
+    public void setEmail(String email) {
+        this.email = EmailAddresses.normalize(email);
+    }
 }

@@ -29,6 +29,11 @@ public class DefaultMessagingFacade implements MessagingFacade {
     }
 
     @Override
+    public boolean hasThanksOnListing(Long reportId) {
+        return messagingService.hasThanksOnListing(reportId);
+    }
+
+    @Override
     public long countThanksReceived(Long userId) {
         return messagingService.countThanksReceived(userId);
     }

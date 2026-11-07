@@ -11,13 +11,13 @@ import com.example.demo.user.model.UserStatus;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.verification.VerificationFacade;
 
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.ArrayList;
 import java.util.List;
 @Service
@@ -101,7 +101,7 @@ public class AccountDeletionService {
 
     private void anonymize(User user) {
         Long userId = user.getId();
-        refreshTokenService.revokeAllForUser(userId);
+        refreshTokenService.endAllSessions(userId, true);
         user.setEmail("deleted-" + userId + "@deleted.local");
         user.setUsername("deleted-" + userId);
         user.setFirstName(null);

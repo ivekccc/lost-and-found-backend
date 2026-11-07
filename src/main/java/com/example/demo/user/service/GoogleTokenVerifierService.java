@@ -7,6 +7,7 @@ import com.google.api.client.json.webtoken.JsonWebToken;
 import com.google.auth.oauth2.TokenVerifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.util.Set;
 @Service
 public class GoogleTokenVerifierService {
@@ -46,10 +47,11 @@ public class GoogleTokenVerifierService {
 
         return new GoogleIdentity(
                 payload.getSubject(),
-                email,
+                EmailAddresses.normalize(email),
                 (String) payload.get("given_name"),
                 (String) payload.get("family_name"),
-                (String) payload.get("picture"));
+                (String) payload.get("picture"),
+                (String) payload.get("hd"));
     }
 
     public record GoogleIdentity(
@@ -57,6 +59,13 @@ public class GoogleTokenVerifierService {
             String email,
             String firstName,
             String lastName,
-            String pictureUrl) {
+            String pictureUrl,
+            String hostedDomain) {
+
+        private static final String GMAIL_DOMAIN = "@gmail.com";
+
+        public boolean isEmailAuthoritative() {
+            return email.endsWith(GMAIL_DOMAIN) || (hostedDomain != null && !hostedDomain.isBlank());
+        }
     }
 }

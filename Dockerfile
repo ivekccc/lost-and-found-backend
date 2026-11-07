@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Spring Boot 4.0.1 / Java 21 backend for Lost & Found.
+# Spring Boot 4.0.9 / Java 21 backend for Lost & Found.
 #
 # Build:
 #   cd lost-and-found-backend

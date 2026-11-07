@@ -10,6 +10,8 @@ public interface MessagingFacade {
 
     void deleteConversationsOfUser(Long userId);
 
+    boolean hasThanksOnListing(Long reportId);
+
     long countThanksReceived(Long userId);
 
     Optional<ReportableMessage> findReportableMessage(Long messageId, Long reporterId);

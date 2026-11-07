@@ -1,17 +1,18 @@
 package com.example.demo.verification.service;
 
 import com.example.demo.messaging.MessagingFacade;
+import com.example.demo.report.ReportFacade;
 import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
-import com.example.demo.report.ReportFacade;
 import com.example.demo.shared.concurrency.AdvisoryLocks;
 import com.example.demo.shared.concurrency.LockScope;
 import com.example.demo.shared.exception.InvalidClaimException;
 import com.example.demo.shared.exception.RateLimitExceededException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
-import com.example.demo.user.model.User;
+import com.example.demo.shared.media.CloudinaryService;
 import com.example.demo.user.UserFacade;
+import com.example.demo.user.model.User;
 import com.example.demo.verification.dto.ClaimAnswerDto;
 import com.example.demo.verification.dto.ClaimAnswerRequestDto;
 import com.example.demo.verification.dto.ClaimDetailsDto;
@@ -36,6 +37,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +51,7 @@ public class ClaimService {
     private static final long DAY_IN_SECONDS = 86400;
 
     private final ClaimRepository claimRepository;
+    private final CloudinaryService cloudinaryService;
     private final ChallengeRepository challengeRepository;
     private final ReportFacade reportFacade;
     private final UserFacade userFacade;
@@ -89,6 +92,17 @@ public class ClaimService {
         );
     }
 
+    private void attachPhoto(Claim claim, String photoPublicId, User claimant) {
+        if (photoPublicId == null || photoPublicId.isBlank()) {
+            return;
+        }
+        if (!cloudinaryService.isOwnedBy(photoPublicId, claimant.getId())) {
+            throw new IllegalArgumentException("claim.photoNotYours");
+        }
+        claim.setPhotoPublicId(photoPublicId);
+        claim.setPhotoUrl(cloudinaryService.deliveryUrl(photoPublicId));
+    }
+
     @Transactional
     public ClaimDto submitClaim(Long challengeId, String userEmail, CreateClaimRequestDto request) {
         User claimant = findUser(userEmail);
@@ -103,8 +117,7 @@ public class ClaimService {
         claim.setChallenge(challenge);
         claim.setClaimant(claimant);
         claim.setMessage(request.getMessage());
-        claim.setPhotoUrl(request.getPhotoUrl());
-        claim.setPhotoPublicId(request.getPhotoPublicId());
+        attachPhoto(claim, request.getPhotoPublicId(), claimant);
 
         buildAnswers(claim, challenge, request.getAnswers());
 

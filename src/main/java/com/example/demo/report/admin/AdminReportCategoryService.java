@@ -9,6 +9,7 @@ import com.example.demo.report.model.ReportCategory;
 import com.example.demo.report.repository.ReportCategoryRepository;
 import com.example.demo.shared.exception.ResourceNotFoundException;
 import com.example.demo.shared.media.CloudinaryService;
+import com.example.demo.user.UserFacade;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,6 +24,7 @@ public class AdminReportCategoryService {
 
     private final ReportCategoryRepository reportCategoryRepository;
     private final CloudinaryService cloudinaryService;
+    private final UserFacade userFacade;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -37,18 +39,20 @@ public class AdminReportCategoryService {
     }
 
     @Transactional
-    public void updateCategoryImage(Long categoryId, UpdateCategoryImageRequestDto request) {
+    public void updateCategoryImage(Long categoryId, UpdateCategoryImageRequestDto request, String adminEmail) {
         ReportCategory category = requireCategory(categoryId);
         String previousPublicId = category.getImagePublicId();
+        Long adminId = userFacade.requireByEmail(adminEmail).getId();
+        if (!cloudinaryService.isOwnedBy(request.getImagePublicId(), adminId)) {
+            throw new IllegalArgumentException("report.imageNotYours");
+        }
 
-        category.setImageUrl(request.getImageUrl());
+        category.setImageUrl(cloudinaryService.deliveryUrl(request.getImagePublicId()));
         category.setImagePublicId(request.getImagePublicId());
         reportCategoryRepository.save(category);
         eventPublisher.publishEvent(AdminActionEvent.of(AuditAction.CATEGORY_IMAGE_CHANGED, AuditTargetType.CATEGORY,
                 categoryId, "Changed the image of " + category.getName()));
 
-        // Only after the new image is stored, and only when it actually replaced something —
-        // deleting first would leave the category without a picture if the save failed.
         if (previousPublicId != null && !previousPublicId.equals(request.getImagePublicId())) {
             cloudinaryService.deleteImage(previousPublicId);
         }

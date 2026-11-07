@@ -10,16 +10,18 @@ import com.example.demo.location.model.City;
 import com.example.demo.location.model.Location;
 import com.example.demo.shared.exception.LocationOutsideSupportedCitiesException;
 import com.example.demo.shared.exception.RateLimitExceededException;
+import com.example.demo.shared.ratelimit.RateLimitPolicy;
+import com.example.demo.shared.ratelimit.RateLimiter;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import static com.example.demo.location.util.SerbianTransliteration.toLatin;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
+
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -27,6 +29,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import static com.example.demo.location.util.SerbianTransliteration.toLatin;
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,7 +52,10 @@ public class LocationService {
     @Value("${locationiq.default-country}")
     private String defaultCountry;
 
+    private static final int MAX_QUERY_LENGTH = 200;
+
     private final RestTemplate restTemplate;
+    private final RateLimiter rateLimiter;
     private final CityService cityService;
     private final ZoneService zoneService;
 
@@ -61,6 +68,13 @@ public class LocationService {
      * address, fills the whole form, and only then gets a 400.
      */
     public List<AutoCompleteSuggestionDTO> getAutoCompleteSuggestions(String query, String userEmail) {
+        rateLimiter.consume(RateLimitPolicy.LOCATION_SEARCH_PER_USER, userEmail);
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        if (query.length() > MAX_QUERY_LENGTH) {
+            throw new IllegalArgumentException("location.invalidQuery");
+        }
         City city = cityService.getActiveCity(userEmail);
         String viewbox = city.getBboxMinLongitude() + "," + city.getBboxMaxLatitude()
                 + "," + city.getBboxMaxLongitude() + "," + city.getBboxMinLatitude();
@@ -93,6 +107,7 @@ public class LocationService {
     }
 
     public ReverseGeocodeDto reverseGeocode(double latitude, double longitude, String userEmail) {
+        rateLimiter.consume(RateLimitPolicy.LOCATION_SEARCH_PER_USER, userEmail);
         if (!isValidCoordinate(latitude, 90) || !isValidCoordinate(longitude, 180)) {
             throw new IllegalArgumentException(
                     "location.coordinatesOutOfRange");
@@ -125,7 +140,7 @@ public class LocationService {
                     .map(this::toLocation)
                     .orElseGet(() -> Location.builder().build());
         } catch (RuntimeException e) {
-            log.warn("LocationIQ could not describe {},{}: {}", latitude, longitude, e.getMessage());
+            log.warn("LocationIQ could not describe a point: {}", e.getMessage());
             return Location.builder().build();
         }
     }

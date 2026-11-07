@@ -1,26 +1,24 @@
 package com.example.demo.report.service;
 
-import org.springframework.context.i18n.LocaleContextHolder;
-
+import com.example.demo.location.LocationFacade;
 import com.example.demo.location.dto.LocationDTO;
 import com.example.demo.location.dto.ReportZoneDto;
 import com.example.demo.location.model.City;
 import com.example.demo.location.model.DistanceBand;
 import com.example.demo.location.model.Location;
 import com.example.demo.location.model.Zone;
-import com.example.demo.location.LocationFacade;
 import com.example.demo.matching.MatchingFacade;
 import com.example.demo.messaging.MessagingFacade;
-import com.example.demo.notification.model.NotificationType;
 import com.example.demo.notification.NotificationFacade;
+import com.example.demo.notification.model.NotificationType;
 import com.example.demo.report.dto.CreateReportRequestDto;
 import com.example.demo.report.dto.NearbyReportDTO;
 import com.example.demo.report.dto.ReportDetailsDTO;
 import com.example.demo.report.dto.ReportImageDTO;
 import com.example.demo.report.dto.ReportImageRequestDTO;
 import com.example.demo.report.dto.ReportListDTO;
-import com.example.demo.report.dto.ZoneReportCountDto;
 import com.example.demo.report.dto.UpdateReportRequestDto;
+import com.example.demo.report.dto.ZoneReportCountDto;
 import com.example.demo.report.event.ReportCreatedEvent;
 import com.example.demo.report.event.ReportImagesRemovedEvent;
 import com.example.demo.report.event.ReportUpdatedEvent;
@@ -42,18 +40,20 @@ import com.example.demo.shared.exception.AccountRestrictedException;
 import com.example.demo.shared.exception.InvalidChallengeException;
 import com.example.demo.shared.exception.ResourceNotFoundException;
 import com.example.demo.shared.media.CloudinaryService;
+import com.example.demo.shared.ratelimit.RateLimitPolicy;
+import com.example.demo.shared.ratelimit.RateLimiter;
 import com.example.demo.shared.util.GeoUtils;
+import com.example.demo.user.UserFacade;
 import com.example.demo.user.model.User;
 import com.example.demo.user.model.UserStatus;
-import com.example.demo.user.UserFacade;
+import com.example.demo.verification.VerificationFacade;
 import com.example.demo.verification.model.Claim;
 import com.example.demo.verification.model.ClaimStatus;
-
-import com.example.demo.verification.VerificationFacade;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -62,6 +62,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -106,6 +107,7 @@ public class ReportService {
     private final ApplicationEventPublisher eventPublisher;
     private final ReportShareService reportShareService;
     private final MessagingFacade messagingFacade;
+    private final RateLimiter rateLimiter;
 
     private static final Set<ReportStatus> EDITABLE_STATUSES =
             EnumSet.of(ReportStatus.ACTIVE, ReportStatus.CLOSED, ReportStatus.EXPIRED);
@@ -121,6 +123,7 @@ public class ReportService {
     @Transactional
     public ReportDetailsDTO createReport(CreateReportRequestDto createReportRequestDto, String userEmail) {
         User user = userFacade.requireByEmail(userEmail);
+        rateLimiter.requireAvailable(RateLimitPolicy.REPORT_CREATION_PER_USER, user.getId());
 
         if (createReportRequestDto.getType() == ReportType.FOUND && user.getStatus() == UserStatus.PARTIALLY_BLOCKED) {
             throw new AccountRestrictedException("report.restrictedCannotPostFound");
@@ -167,6 +170,7 @@ public class ReportService {
             reportRepository.save(saved);
         }
 
+        rateLimiter.consume(RateLimitPolicy.REPORT_CREATION_PER_USER, user.getId());
         eventPublisher.publishEvent(new ReportCreatedEvent(this, saved.getId(), user.getId(), saved.getTitle()));
 
         return toDetailsDTO(saved, user, false);
@@ -316,6 +320,7 @@ public class ReportService {
         }
 
         report.setStatus(ReportStatus.DELETED);
+        report.setDeletedAt(LocalDateTime.now());
         reportRepository.save(report);
 
         // Same reason as closing: a deleted listing accepts no claim decisions.
@@ -345,7 +350,10 @@ public class ReportService {
                     dto.getLocation().getLatitude(),
                     dto.getLocation().getLongitude());
             requireLocationInActiveCity(location, user);
+            Location previousLocation = report.getLocation();
             report.setLocation(location);
+            reportRepository.flush();
+            locationFacade.deleteLocation(previousLocation);
             matchingInputChanged = true;
         }
 
@@ -398,13 +406,7 @@ public class ReportService {
     }
 
     private void requireAttachableImages(List<ReportImageRequestDTO> images, User user) {
-        // A publicId arriving from the client is a reference to someone else's file: account
-        // deletion wipes Cloudinary images by exactly this field. The prefix check is the real
-        // defence; the uniqueness check covers images uploaded before prefixes existed.
         for (ReportImageRequestDTO imgDto : images) {
-            if (imgDto.getPublicId() == null) {
-                continue;
-            }
             if (!cloudinaryService.isOwnedBy(imgDto.getPublicId(), user.getId())) {
                 throw new IllegalArgumentException("report.imageNotYours");
             }
@@ -417,7 +419,7 @@ public class ReportService {
     private ReportImage toImage(Report report, ReportImageRequestDTO imgDto, int displayOrder) {
         ReportImage image = new ReportImage();
         image.setReport(report);
-        image.setImageUrl(imgDto.getImageUrl());
+        image.setImageUrl(cloudinaryService.deliveryUrl(imgDto.getPublicId()));
         image.setPublicId(imgDto.getPublicId());
         image.setDisplayOrder(displayOrder);
         return image;
@@ -446,7 +448,6 @@ public class ReportService {
                 .filter(report -> report.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("report.notFound"));
     }
-
 
     @Transactional(readOnly = true)
     public List<ZoneReportCountDto> getReportMap(ReportType type, Long categoryId, TimeWindow postedWithin,
@@ -699,7 +700,6 @@ public class ReportService {
                         abuseReportRepository.countByTargetReportIdAndStatus(report.getId(), AbuseReportStatus.PENDING)
                                 >= REPORT_VISIBILITY_THRESHOLD));
     }
-
 
     /**
      * Defence in depth — address search is already limited to the city. Without it, bypassing

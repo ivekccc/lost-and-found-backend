@@ -7,17 +7,17 @@ import com.example.demo.location.dto.ReportZoneDto;
 import com.example.demo.location.model.City;
 import com.example.demo.location.model.Location;
 import com.example.demo.location.model.Zone;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import com.example.demo.location.repository.CityRepository;
-
-import java.util.List;
-import java.util.Optional;
 import com.example.demo.location.repository.LocationRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +30,14 @@ public class DefaultLocationFacade implements LocationFacade {
     private final CityService cityService;
 
     private static final int COORDINATE_SCALE = 8;
+
+    @Override
+    @Transactional
+    public void deleteLocation(Location location) {
+        if (location != null) {
+            locationRepository.delete(location);
+        }
+    }
 
     @Override
     @Transactional
