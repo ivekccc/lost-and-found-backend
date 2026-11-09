@@ -33,4 +33,4 @@ Lokalno: `SPRING_PROFILES_ACTIVE=dev` + tajne (`JWT_SECRET`, `MAIL_*`, `LOCATION
 
 Van dev-a (bez podrazumevanih vrednosti, start pada ako fale): `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `ALLOWED_ORIGINS`, `PUBLIC_BASE_URL`, `FIREBASE_CREDENTIALS_PATH`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `LOCATIONIQ_API_KEY`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `GOOGLE_CLIENT_ID`. Opciono `FLYWAY_USERNAME`/`FLYWAY_PASSWORD`, `FORWARD_HEADERS_STRATEGY` (podrazumevano `native`).
 
-Deploy: GitHub Actions (`.github/workflows/deploy.yml`) → GHCR image → Azure Container App `lost-and-found-api` (resource group `lost-and-found-rg`, Germany West Central), prijava preko OIDC (repo variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`).
+Deploy: ručno pokretanje (`workflow_dispatch`, push na `main` ne deploy-uje dok platforma nije objavljena) GitHub Actions (`.github/workflows/deploy.yml`) → GHCR image → Azure Container App `lost-and-found-api` (resource group `lost-and-found-rg`, Germany West Central), prijava preko OIDC (repo variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`).
