@@ -1,0 +1,55 @@
+group	label	lost	found
+latinica	1	Izgubljen crni kožni novčanik. Unutra lična karta i dve kartice, izgubljen u autobusu 26.	Pronađen crni novčanik od kože sa dokumentima, nađen na sedištu autobusa.
+latinica	1	Izgubljeni ključevi sa crvenim privescima Zvezde. Tri ključa i daljinski za kapiju.	Nađeni ključevi, tri komada, privezak crveno-beli i daljinski upravljač.
+latinica	1	Izgubio se sat Casio, srebrni, metalna narukvica.	Pronađen srebrni ručni sat Casio sa metalnim kaišem.
+latinica	1	Izgubljen plavi ranac Nike sa laptopom unutra.	Nađen teget ranac marke Nike, unutra laptop i punjač.
+latinica	1	Izgubljen iPhone 13 u crnoj silikonskoj maski.	Pronađen mobilni telefon Apple iPhone, crna maska.
+latinica	1	Izgubljena bela slušalica AirPods Pro u kutijici.	Nađene bežične slušalice AirPods sa belim punjačem.
+latinica	1	Izgubljen pas, mešanac, smeđe boje, odaziva se na Maks.	Pronađen braon pas mešanac, izgleda izgubljeno, ima ogrlicu.
+latinica	1	Izgubljene naočare za vid u braon futroli.	Nađene dioptrijske naočare sa braon kutijom.
+latinica	1	Izgubljen zlatni prsten sa malim kamenom, burma.	Pronađen zlatni prsten sa cirkonom.
+latinica	1	Izgubljen kišobran, zeleni, sklopivi.	Nađen sklopivi kišobran zelene boje u tramvaju.
+cirilica	1	Izgubljen crni kožni novčanik sa ličnom kartom.	Пронађен црни новчаник од коже са документима.
+cirilica	1	Изгубљени кључеви са црвеним привеском, три кључа.	Nađeni ključevi, tri komada, crveni privezak.
+cirilica	1	Izgubljen srebrni sat Casio sa metalnom narukvicom.	Пронађен сребрни ручни сат Цасио.
+cirilica	1	Изгубљен плави ранац са лаптопом.	Nađen plavi ranac, unutra laptop.
+cirilica	1	Izgubljen mobilni telefon Samsung u crvenoj maski.	Пронађен мобилни телефон Самсунг, црвена маска.
+cirilica	1	Изгубљене наочаре за вид у браон футроли.	Nađene naočare za vid sa braon futrolom.
+cirilica	1	Izgubljena plišana igračka, mali beli zeka.	Пронађена плишана играчка, бели зец.
+cirilica	1	Изгубљен пасош Републике Србије.	Pronađen pasoš, Republika Srbija, plave korice.
+sinonimi	1	Izgubljen crni novčanik sa dokumentima.	Nađen tamni buđelar sa ličnom kartom.
+sinonimi	1	Izgubljen mobilni telefon u crnoj futroli.	Pronađen smartfon sa crnom maskom.
+sinonimi	1	Izgubljen ranac sa knjigama za fakultet.	Nađena školska torba na leđa sa udžbenicima.
+sinonimi	1	Izgubljene slušalice, bežične, bele.	Pronađene bluetooth bubice bele boje.
+sinonimi	1	Izgubljena jakna, teget, zimska.	Pronađena tamnoplava zimska jakna.
+sinonimi	1	Izgubljen kišobran crni.	Nađen crni suncobran, sklopivi.
+sinonimi	1	Izgubljena tašna, ženska, crvena kožna.	Pronađena crvena ženska torbica od kože.
+sinonimi	1	Izgubljena mačka, siva, mlada.	Nađeno sivo mače, mlado, pitomo.
+engleski	1	Lost black leather wallet with ID card.	Pronađen crni kožni novčanik sa ličnom kartom.
+engleski	1	Lost keys with a red keychain, three keys.	Nađeni ključevi sa crvenim priveskom.
+engleski	1	Lost blue backpack with a laptop inside.	Пронађен плави ранац, унутра лаптоп.
+engleski	1	Lost silver Casio watch.	Pronađen srebrni sat Casio.
+engleski	1	Lost brown dog, mixed breed, answers to Max.	Nađen braon pas mešanac sa ogrlicom.
+engleski	1	Lost prescription glasses in a brown case.	Nađene naočare za vid u braon futroli.
+negativ	0	Izgubljen crni kožni novčanik sa ličnom kartom.	Pronađen roze dečiji novčanik sa likom Elze, prazan.
+negativ	0	Izgubljeni ključevi sa crvenim privescima Zvezde.	Nađen jedan ključ od auta Volkswagen, bez priveska.
+negativ	0	Izgubljen srebrni sat Casio sa metalnom narukvicom.	Pronađen zlatni ženski sat Michael Kors, kožni kaiš.
+negativ	0	Izgubljen plavi ranac Nike sa laptopom.	Nađen crveni dečiji ranac sa likom Spajdermena.
+negativ	0	Izgubljen iPhone 13 u crnoj maski.	Pronađen stari Nokia telefon na preklop.
+negativ	0	Izgubljen pas, mešanac, smeđe boje.	Pronađena bela mačka persijanka.
+negativ	0	Izgubljene naočare za vid u braon futroli.	Nađene sunčane naočare Ray-Ban, crne.
+negativ	0	Izgubljen zlatni prsten sa kamenom.	Pronađena srebrna ogrlica sa privezkom srca.
+negativ	0	Izgubljena bela slušalica AirPods Pro.	Nađene velike crne slušalice Sony sa kablom.
+negativ	0	Izgubljen pasoš Republike Srbije.	Pronađena saobraćajna dozvola za automobil.
+negativ	0	Изгубљен црни кожни новчаник са личном картом.	Pronađen roze dečiji novčanik sa likom Elze.
+negativ	0	Izgubljen plavi ranac sa laptopom.	Пронађен црвени дечији ранац са Спајдерменом.
+negativ	0	Lost black leather wallet with ID card.	Nađen roze dečiji novčanik sa slikom princeze.
+negativ	0	Lost silver Casio watch.	Pronađen zlatni sat Michael Kors, kožni kaiš.
+negativ	0	Izgubljena jakna, teget, zimska.	Pronađen crveni letnji šorts.
+negativ	0	Izgubljena mačka, siva, mlada.	Pronađen veliki crni pas, rotvajler.
+negativ	0	Izgubljen kišobran crni.	Nađena zelena kabanica sa kapuljačom.
+negativ	0	Izgubljena tašna, ženska, crvena kožna.	Pronađen muški crni aktovka za laptop.
+negativ	0	Izgubljene slušalice, bežične, bele.	Pronađen beli punjač za telefon sa kablom.
+negativ	0	Izgubljen mobilni telefon Samsung u crvenoj maski.	Pronađen tablet Lenovo u crnoj futroli.
+negativ	0	Izgubljena plišana igračka, mali beli zeka.	Nađena drvena igračka, crveni kamion.
+negativ	0	Izgubljen crni novčanik sa dokumentima.	Pronađena crna futrola za naočare, prazna.

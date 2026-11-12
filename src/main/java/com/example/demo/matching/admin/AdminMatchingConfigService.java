@@ -5,6 +5,7 @@ import com.example.demo.audit.AuditAction;
 import com.example.demo.audit.AuditTargetType;
 import com.example.demo.matching.model.MatchingConfig;
 import com.example.demo.matching.repository.MatchingConfigRepository;
+import com.example.demo.shared.embedding.TextEmbeddings;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,6 +22,7 @@ public class AdminMatchingConfigService {
 
     private final MatchingConfigRepository matchingConfigRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TextEmbeddings textEmbeddings;
 
     @Transactional(readOnly = true)
     public MatchingConfigDto get() {
@@ -38,6 +40,8 @@ public class AdminMatchingConfigService {
         config.setWeightTime(request.getWeightTime());
         config.setTimeDecayDays(request.getTimeDecayDays());
         config.setScoreThreshold(request.getScoreThreshold());
+        config.setTrigramShare(request.getTrigramShare());
+        config.setSemanticFloor(request.getSemanticFloor());
         config.setUpdatedAt(LocalDateTime.now());
 
         MatchingConfig saved = matchingConfigRepository.save(config);
@@ -54,6 +58,8 @@ public class AdminMatchingConfigService {
         values.put("weightTime", config.getWeightTime());
         values.put("timeDecayDays", config.getTimeDecayDays());
         values.put("scoreThreshold", config.getScoreThreshold());
+        values.put("trigramShare", config.getTrigramShare());
+        values.put("semanticFloor", config.getSemanticFloor());
         return values;
     }
 
@@ -65,6 +71,9 @@ public class AdminMatchingConfigService {
                 config.getWeightTime(),
                 config.getTimeDecayDays(),
                 config.getScoreThreshold(),
+                config.getTrigramShare(),
+                config.getSemanticFloor(),
+                textEmbeddings.isEnabled() ? textEmbeddings.modelName() : null,
                 config.getUpdatedAt());
     }
 }

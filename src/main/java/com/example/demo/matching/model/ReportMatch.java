@@ -46,6 +46,12 @@ public class ReportMatch {
     @Column(name = "text_score", nullable = false)
     private Integer textScore;
 
+    @Column(name = "trigram_similarity", nullable = false, precision = 4, scale = 3)
+    private BigDecimal trigramSimilarity;
+
+    @Column(name = "semantic_similarity", precision = 4, scale = 3)
+    private BigDecimal semanticSimilarity;
+
     /**
      * Scoring parameters as they were at computation time, not as they are now. A match read back
      * later must explain its own score even after the configuration has been retuned.
@@ -67,6 +73,12 @@ public class ReportMatch {
 
     @Column(name = "applied_score_threshold", nullable = false)
     private Integer appliedScoreThreshold;
+
+    @Column(name = "applied_trigram_share", nullable = false, precision = 3, scale = 2)
+    private BigDecimal appliedTrigramShare;
+
+    @Column(name = "applied_semantic_floor", nullable = false, precision = 3, scale = 2)
+    private BigDecimal appliedSemanticFloor;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

@@ -46,6 +46,12 @@ public class MatchingConfig {
     @Column(name = "score_threshold", nullable = false)
     private Integer scoreThreshold;
 
+    @Column(name = "trigram_share", nullable = false, precision = 3, scale = 2)
+    private BigDecimal trigramShare;
+
+    @Column(name = "semantic_floor", nullable = false, precision = 3, scale = 2)
+    private BigDecimal semanticFloor;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 }

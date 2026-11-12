@@ -6,7 +6,9 @@ import com.example.demo.report.model.ReportCategory;
 import com.example.demo.shared.stats.DailyCount;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -72,4 +74,8 @@ public interface ReportFacade {
     List<DailyCount> countListingsReunitedPerDay(LocalDateTime from);
 
     List<CityListingCount> countListingsPerCity(LocalDateTime reunitedSince);
+
+    Optional<float[]> refreshTextEmbedding(Long reportId);
+
+    Map<Long, float[]> textEmbeddings(Collection<Long> reportIds);
 }

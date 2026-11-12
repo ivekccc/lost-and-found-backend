@@ -42,9 +42,10 @@ public interface SavedSearchRepository extends JpaRepository<SavedSearch, Long> 
             + "AND (s.category_id IS NULL OR s.category_id = r.category_id) "
             + "AND (s.zone_id IS NULL OR s.zone_id = z.id OR s.zone_id = z.parent_id) "
             + "AND (s.search_text IS NULL "
-            + "     OR strpos(unaccent(lower(r.title)), unaccent(lower(s.search_text))) > 0 "
-            + "     OR strpos(unaccent(lower(COALESCE(r.description, ''))), "
-            + "               unaccent(lower(s.search_text))) > 0)",
+            + "     OR strpos(unaccent(lower(transliterate_serbian(r.title))), "
+            + "               unaccent(lower(transliterate_serbian(s.search_text)))) > 0 "
+            + "     OR strpos(unaccent(lower(transliterate_serbian(COALESCE(r.description, '')))), "
+            + "               unaccent(lower(transliterate_serbian(s.search_text)))) > 0)",
             nativeQuery = true)
     List<Long> findSubscribersOf(@Param("reportId") Long reportId);
 }

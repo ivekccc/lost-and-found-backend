@@ -12,6 +12,7 @@ import com.example.demo.report.model.Report;
 import com.example.demo.report.model.ReportStatus;
 import com.example.demo.report.model.ReportType;
 import com.example.demo.report.ReportFacade;
+import com.example.demo.matching.service.TextSimilarityBlend.TextSignal;
 import com.example.demo.shared.util.GeoUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 @Service
@@ -38,12 +40,12 @@ public class MatchingService {
 
     @Transactional
     public void computeMatchesForReport(Long reportId) {
-        computeQualifyingCandidates(reportId);
+        computeQualifyingCandidates(reportId, false);
     }
 
     @Transactional
     public void recomputeMatchesForEditedReport(Long reportId) {
-        Optional<Set<Long>> qualifying = computeQualifyingCandidates(reportId);
+        Optional<Set<Long>> qualifying = computeQualifyingCandidates(reportId, true);
         if (qualifying.isEmpty()) {
             return;
         }
@@ -63,7 +65,7 @@ public class MatchingService {
                 : match.getLostReport().getId();
     }
 
-    private Optional<Set<Long>> computeQualifyingCandidates(Long reportId) {
+    private Optional<Set<Long>> computeQualifyingCandidates(Long reportId, boolean textMayHaveChanged) {
         Report report = reportFacade.findById(reportId).orElse(null);
 
         if (report == null || report.getStatus() != ReportStatus.ACTIVE || report.getLocation() == null) {
@@ -94,16 +96,27 @@ public class MatchingService {
         // edit must take effect on the next report, and one extra query per creation is nothing.
         MatchingConfig config = matchingConfigRepository.require();
 
+        float[] probeEmbedding = textMayHaveChanged
+                ? reportFacade.refreshTextEmbedding(reportId).orElse(null)
+                : reportFacade.textEmbeddings(List.of(reportId)).get(reportId);
+        Map<Long, float[]> candidateEmbeddings = probeEmbedding == null || candidates.isEmpty()
+                ? Map.of()
+                : reportFacade.textEmbeddings(candidates.stream().map(MatchCandidateView::getId).toList());
+
         Set<Long> qualifying = new HashSet<>();
         for (MatchCandidateView candidate : candidates) {
-            if (evaluateCandidate(report, candidate, config)) {
+            TextSignal text = TextSimilarityBlend.combine(candidate.getSimilarity(), probeEmbedding,
+                    candidateEmbeddings.get(candidate.getId()),
+                    config.getTrigramShare().doubleValue(), config.getSemanticFloor().doubleValue());
+            if (evaluateCandidate(report, candidate, text, config)) {
                 qualifying.add(candidate.getId());
             }
         }
         return Optional.of(qualifying);
     }
 
-    private boolean evaluateCandidate(Report report, MatchCandidateView candidate, MatchingConfig config) {
+    private boolean evaluateCandidate(Report report, MatchCandidateView candidate, TextSignal text,
+                                      MatchingConfig config) {
         double distanceKm = GeoUtils.haversineKm(
                 report.getLocation().getLatitude().doubleValue(),
                 report.getLocation().getLongitude().doubleValue(),
@@ -115,7 +128,7 @@ public class MatchingService {
         }
 
         int timeGapDays = (int) Math.abs(Duration.between(report.getCreatedAt(), candidate.getCreatedAt()).toDays());
-        double similarity = candidate.getSimilarity() == null ? 0 : candidate.getSimilarity();
+        double similarity = text.combined();
 
         double maxDistanceKm = config.getMaxDistanceKm().doubleValue();
 
@@ -136,13 +149,13 @@ public class MatchingService {
         // A concurrent insert of the same pair aborts this transaction (unique constraint); the
         // periodic rescan reconciles anything lost to such a race, so no in-transaction retry.
         upsertMatch(lostReportId, foundReportId, score, distanceKm, distanceScore,
-                timeGapDays, timeScore, similarity, textScore, config);
+                timeGapDays, timeScore, text, textScore, config);
         return true;
     }
 
     private void upsertMatch(Long lostReportId, Long foundReportId, int score, double distanceKm,
                              int distanceScore, int timeGapDays, int timeScore,
-                             double similarity, int textScore, MatchingConfig config) {
+                             TextSignal text, int textScore, MatchingConfig config) {
         ReportMatch match = reportMatchRepository
                 .findByLostReportIdAndFoundReportId(lostReportId, foundReportId)
                 .orElse(null);
@@ -160,8 +173,12 @@ public class MatchingService {
         match.setDistanceScore(distanceScore);
         match.setTimeGapDays(timeGapDays);
         match.setTimeScore(timeScore);
-        match.setTextSimilarity(BigDecimal.valueOf(similarity).setScale(3, RoundingMode.HALF_UP));
+        match.setTextSimilarity(BigDecimal.valueOf(text.combined()).setScale(3, RoundingMode.HALF_UP));
         match.setTextScore(textScore);
+        match.setTrigramSimilarity(BigDecimal.valueOf(text.trigram()).setScale(3, RoundingMode.HALF_UP));
+        match.setSemanticSimilarity(text.semantic() == null
+                ? null
+                : BigDecimal.valueOf(text.semantic()).setScale(3, RoundingMode.HALF_UP));
 
         // Outside the isNew branch on purpose: a recomputed match must carry the parameters that
         // produced its current scores, or the stored row explains itself with the wrong numbers.
@@ -171,6 +188,8 @@ public class MatchingService {
         match.setAppliedWeightTime(config.getWeightTime());
         match.setAppliedTimeDecayDays(config.getTimeDecayDays());
         match.setAppliedScoreThreshold(config.getScoreThreshold());
+        match.setAppliedTrigramShare(BigDecimal.valueOf(text.appliedTrigramShare()).setScale(2, RoundingMode.HALF_UP));
+        match.setAppliedSemanticFloor(config.getSemanticFloor().setScale(2, RoundingMode.HALF_UP));
 
         if (isNew) {
             match.setNotifiedAt(LocalDateTime.now());

@@ -38,4 +38,12 @@ public class AppliedMatchingConfigDto {
     @NotNull
     @Schema(description = "Minimum total score for a pair to be suggested")
     private Integer scoreThreshold;
+
+    @NotNull
+    @Schema(description = "Share of trigram similarity in the text signal")
+    private BigDecimal trigramShare;
+
+    @NotNull
+    @Schema(description = "Semantic similarity at or below this value counted as zero")
+    private BigDecimal semanticFloor;
 }

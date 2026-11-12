@@ -24,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -37,6 +39,7 @@ public class DefaultReportFacade implements ReportFacade {
     private final SavedReportRepository savedReportRepository;
     private final SavedSearchService savedSearchService;
     private final AbuseReportRepository abuseReportRepository;
+    private final ReportTextEmbeddingService reportTextEmbeddingService;
     private final LocationFacade locationFacade;
 
     @Override
@@ -216,5 +219,15 @@ public class DefaultReportFacade implements ReportFacade {
                         view.getActiveReports() == null ? 0 : view.getActiveReports(),
                         view.getReunitedReports() == null ? 0 : view.getReunitedReports()))
                 .toList();
+    }
+
+    @Override
+    public Optional<float[]> refreshTextEmbedding(Long reportId) {
+        return reportTextEmbeddingService.refresh(reportId);
+    }
+
+    @Override
+    public Map<Long, float[]> textEmbeddings(Collection<Long> reportIds) {
+        return reportTextEmbeddingService.current(reportIds);
     }
 }

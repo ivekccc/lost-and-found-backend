@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -46,6 +47,18 @@ public class UpdateMatchingConfigRequestDto {
     @Min(value = 0, message = "{validation.matching.scoreThreshold.range}")
     @Max(value = 100, message = "{validation.matching.scoreThreshold.range}")
     private Integer scoreThreshold;
+
+    @NotNull(message = "{validation.matching.trigramShare.required}")
+    @DecimalMin(value = "0", message = "{validation.matching.trigramShare.range}")
+    @DecimalMax(value = "1", message = "{validation.matching.trigramShare.range}")
+    @Digits(integer = 1, fraction = 2, message = "{validation.matching.twoDecimals}")
+    private BigDecimal trigramShare;
+
+    @NotNull(message = "{validation.matching.semanticFloor.required}")
+    @DecimalMin(value = "0", message = "{validation.matching.semanticFloor.range}")
+    @DecimalMax(value = "0.95", message = "{validation.matching.semanticFloor.range}")
+    @Digits(integer = 1, fraction = 2, message = "{validation.matching.twoDecimals}")
+    private BigDecimal semanticFloor;
 
     /**
      * A total score of 100 is what makes the stored score readable as a percentage, so the weights

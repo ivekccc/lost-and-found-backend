@@ -41,11 +41,18 @@ public class AdminMatchDetailsDto {
     private Integer timeScore;
 
     @NotNull
-    @Schema(description = "Trigram similarity of title and description, 0 to 1")
+    @Schema(description = "Combined text similarity, 0 to 1: trigram and semantic similarity blended by the applied share")
     private Double textSimilarity;
 
     @NotNull
     private Integer textScore;
+
+    @NotNull
+    @Schema(description = "Trigram similarity of title and description, 0 to 1; transliterated from Cyrillic for matches scored since November 2026")
+    private Double trigramSimilarity;
+
+    @Schema(description = "Cosine similarity of the two text embeddings, 0 to 1; absent when the model was not available")
+    private Double semanticSimilarity;
 
     @NotNull
     private AppliedMatchingConfigDto config;

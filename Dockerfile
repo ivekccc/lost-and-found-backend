@@ -42,6 +42,14 @@ RUN ./mvnw -B -q -DskipTests package \
  && cd /workspace/extracted \
  && java -Djarmode=layertools -jar app.jar extract
 
+FROM scratch AS model
+ADD --checksum=sha256:98a01d88b7de996cdea58c32ca71208c09968d143798814b2ea09d3439dc334f \
+    https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/e8f8c211226b894fcb81acc59f3b34ba3efd5f42/onnx/model_quint8_avx2.onnx \
+    /model/model.onnx
+ADD --checksum=sha256:2c3387be76557bd40970cec13153b3bbf80407865484b209e655e5e4729076b8 \
+    https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/e8f8c211226b894fcb81acc59f3b34ba3efd5f42/tokenizer.json \
+    /model/tokenizer.json
+
 ###############################################################################
 # Stage 2: runtime
 # Slim JRE image. Layers copied separately so app code changes don't bust
@@ -59,12 +67,14 @@ COPY --from=build --chown=spring:spring /workspace/extracted/dependencies/      
 COPY --from=build --chown=spring:spring /workspace/extracted/spring-boot-loader/   ./
 COPY --from=build --chown=spring:spring /workspace/extracted/snapshot-dependencies/ ./
 COPY --from=build --chown=spring:spring /workspace/extracted/application/          ./
+COPY --from=model --chown=spring:spring /model /app/models/paraphrase-multilingual-minilm
 
 USER spring
 
 # Azure App Service / Container Apps inject PORT; default to 8082 locally.
 ENV SERVER_PORT=8082 \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
+    EMBEDDING_MODEL_DIR=/app/models/paraphrase-multilingual-minilm \
+    JAVA_OPTS="-XX:MaxRAMPercentage=60 -XX:+UseG1GC -Djava.security.egd=file:/dev/./urandom"
 
 EXPOSE 8082
 

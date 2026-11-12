@@ -55,7 +55,9 @@ public class AdminMatchService {
                 match.getAppliedWeightText(),
                 match.getAppliedWeightTime(),
                 match.getAppliedTimeDecayDays(),
-                match.getAppliedScoreThreshold()
+                match.getAppliedScoreThreshold(),
+                match.getAppliedTrigramShare(),
+                match.getAppliedSemanticFloor()
         );
 
         return new AdminMatchDetailsDto(
@@ -67,6 +69,8 @@ public class AdminMatchService {
                 match.getTimeScore(),
                 match.getTextSimilarity().doubleValue(),
                 match.getTextScore(),
+                match.getTrigramSimilarity().doubleValue(),
+                match.getSemanticSimilarity() == null ? null : match.getSemanticSimilarity().doubleValue(),
                 config,
                 match.getStatus(),
                 match.getLostReport().getCategory().localizedName(LocaleContextHolder.getLocale()),

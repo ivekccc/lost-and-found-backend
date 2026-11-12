@@ -16,7 +16,8 @@ public interface ZoneRepository extends JpaRepository<Zone, Long> {
 
     @Query("SELECT z FROM Zone z WHERE z.cityId = :cityId AND z.level = :level "
             + "AND (:parentId IS NULL OR z.parentId = :parentId) "
-            + "AND FUNCTION('strpos', LOWER(FUNCTION('unaccent', z.name)), LOWER(FUNCTION('unaccent', :search))) > 0 "
+            + "AND FUNCTION('strpos', LOWER(FUNCTION('unaccent', FUNCTION('transliterate_serbian', z.name))), "
+            + "LOWER(FUNCTION('unaccent', FUNCTION('transliterate_serbian', :search)))) > 0 "
             + "ORDER BY z.name")
     Page<Zone> findFilterZones(@Param("cityId") Long cityId,
                                @Param("level") short level,

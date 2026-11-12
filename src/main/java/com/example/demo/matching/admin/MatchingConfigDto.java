@@ -41,6 +41,17 @@ public class MatchingConfigDto {
     private Integer scoreThreshold;
 
     @NotNull
+    @Schema(description = "Share of trigram similarity in the text signal, 0 to 1; the rest is semantic similarity")
+    private BigDecimal trigramShare;
+
+    @NotNull
+    @Schema(description = "Semantic similarity at or below this value counts as zero, 0 to 0.95")
+    private BigDecimal semanticFloor;
+
+    @Schema(description = "Name of the loaded text embedding model; absent when semantic comparison is off")
+    private String semanticModel;
+
+    @NotNull
     @Schema(description = "When these values were last changed")
     private LocalDateTime updatedAt;
 }

@@ -162,7 +162,8 @@ public final class ReportSpecifications {
 
     private static Expression<String> unaccented(CriteriaBuilder builder,
                                                  Expression<String> value) {
-        return builder.function("unaccent", String.class, value);
+        return builder.function("unaccent", String.class,
+                builder.function("transliterate_serbian", String.class, value));
     }
 
     private static Predicate contains(CriteriaBuilder builder, Expression<String> haystack, Expression<String> needle) {

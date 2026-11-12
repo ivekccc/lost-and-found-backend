@@ -79,8 +79,8 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
      */
     @Query(value = "SELECT r.id AS id, r.created_at AS createdAt, "
             + "l.latitude AS latitude, l.longitude AS longitude, "
-            + "similarity(unaccent(lower(:probeText)), "
-            + "           unaccent(lower(r.title || ' ' || COALESCE(r.description, '')))) AS similarity "
+            + "similarity(unaccent(lower(transliterate_serbian(:probeText))), "
+            + "           unaccent(lower(transliterate_serbian(r.title || ' ' || COALESCE(r.description, ''))))) AS similarity "
             + "FROM reports r "
             + "JOIN locations l ON l.id = r.location_id "
             + "JOIN zones z ON z.id = l.zone_id "
